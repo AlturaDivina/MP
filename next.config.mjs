@@ -9,12 +9,12 @@ const nextConfig = {
   async headers() {
     // CSP permisivo pero que mantiene protección básica contra script injection
     const ContentSecurityPolicy = `
-      default-src 'self' https://*.mercadopago.com https://*.mlstatic.com https://*.framer.com https://*.framer.app;
-      script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.mercadopago.com https://*.mlstatic.com https://*.framer.com;
-      style-src 'self' 'unsafe-inline' https://*.mercadopago.com https://*.mlstatic.com;
-      img-src 'self' data: blob: https://*.mercadopago.com https://*.mlstatic.com https://*.framer.com;
-      connect-src 'self' https://*.mercadopago.com https://api.mercadopago.com https://*.mlstatic.com https://*.framer.com;
-      font-src 'self' data: https://*.mlstatic.com;
+      default-src 'self' https://*.mercadopago.com https://*.mlstatic.com https://*.mercadolibre.com https://*.framer.com;
+      script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.mercadopago.com https://*.mlstatic.com https://*.mercadolibre.com;
+      style-src 'self' 'unsafe-inline' https://*.mercadopago.com https://*.mlstatic.com https://*.mercadolibre.com;
+      img-src 'self' data: blob: https://*.mercadopago.com https://*.mlstatic.com https://*.framer.com https://*.mercadolibre.com https://*.mercadolivre.com;
+      connect-src 'self' https://*.mercadopago.com https://api.mercadopago.com https://*.mlstatic.com https://*.framer.com https://*.mercadolibre.com https://*.mercadolivre.com;
+      font-src 'self' data: https://*.mlstatic.com https://*.mercadolibre.com;
       object-src 'none';
       frame-src 'self' *;
       frame-ancestors *; 
