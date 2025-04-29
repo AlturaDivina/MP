@@ -3,27 +3,31 @@ const products = [
     id: '1',
     name: 'Reposado',
     description: 'Descripción del producto ejemplo',
-    price: 1500, // Asegúrate que sea número
+    price: 1500,
     category: 'ejemplos',
-    stockAvailable: 5 // Asegúrate que sea número
+    stockAvailable: 5
   },
   {
     id: '2',
     name: 'Blanco',
     description: 'Descripción del producto ejemplo',
-    price: 1500, // Asegúrate que sea número
+    price: 1500,
     category: 'ejemplos',
-    stockAvailable: 50 // Asegúrate que sea número
+    stockAvailable: 50
   },
   {
     id: '3',
     name: 'Cristalino',
     description: 'Descripción del producto ejemplo',
-    price: 1500, // Asegúrate que sea número
+    price: 1500, 
     category: 'ejemplos',
-    stockAvailable: 100 // Asegúrate que sea número
+    stockAvailable: 100 
   }
-  // ... más productos
 ];
 
-export { products };
+// Función para obtener un producto por ID
+function getProductById(id) {
+  return products.find(product => product.id === id);
+}
+
+export { products, getProductById };
