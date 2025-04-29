@@ -1,13 +1,15 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import styles from '../styles/PaymentFlow.module.css'; 
+import styles from '../styles/PaymentFlow.module.css';
 import MercadoPagoProvider from './MercadoPagoProvider';
 import { cn } from '../lib/utils';
+import { products as staticProducts } from '../data/products'; // <-- Importa productos estáticos
 
 export default function PaymentFlow({
   apiBaseUrl,
-  productsEndpoint = '/api/products',
+  // productsEndpoint ya no se usa para fetch, pero puede mantenerse si otras partes lo necesitan
+  // productsEndpoint = '/api/products',
   mercadoPagoPublicKey,
   PaymentProviderComponent = MercadoPagoProvider,
   successUrl,
@@ -19,6 +21,7 @@ export default function PaymentFlow({
   hideTitle = false,
   className = '',
 }) {
+  // --- Validaciones iniciales de props (sin cambios) ---
   if (!apiBaseUrl) {
     console.error("PaymentFlow Error: 'apiBaseUrl' prop is required.");
     return <div className={styles['mp-error-container']}>Error de configuración: Falta apiBaseUrl.</div>;
@@ -36,44 +39,21 @@ export default function PaymentFlow({
     return <div className={styles['mp-error-container']}>Error de configuración: Falta PaymentProviderComponent.</div>;
   }
 
-  const [products, setProducts] = useState([]);
-  const [selectedProductId, setSelectedProductId] = useState(null);
+  // --- Inicializa estados directamente con datos estáticos ---
+  const [products, setProducts] = useState(staticProducts || []); // Usa los productos importados
+  const [selectedProductId, setSelectedProductId] = useState(staticProducts?.[0]?.id || null);
   const [quantity, setQuantity] = useState(1);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-
   const [currentStep, setCurrentStep] = useState(1);
-  const [selectedProduct, setSelectedProduct] = useState(null);
+  // Inicializa selectedProduct basado en el primer producto estático
+  const [selectedProduct, setSelectedProduct] = useState(staticProducts?.[0] || null);
   const [confirmedOrder, setConfirmedOrder] = useState(null);
 
-  useEffect(() => {
-    const fetchProducts = async () => {
-      try {
-        setLoading(true);
-        const fullProductsUrl = `${apiBaseUrl.replace(/\/$/, '')}${productsEndpoint}`;
-        const response = await fetch(fullProductsUrl);
-        if (!response.ok) {
-          throw new Error('Error al cargar productos');
-        }
-        const data = await response.json();
-        setProducts(data);
-        if (data.length > 0) {
-          setSelectedProductId(data[0].id);
-          setSelectedProduct(data[0]);
-        }
-      } catch (e) {
-        setError(e.message);
-        if (onError) onError(e);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchProducts();
-  }, [apiBaseUrl, productsEndpoint, onError]);
-
+  // --- Lógica de handlers (handleProductChange, handleQuantityChange, etc.) sin cambios ---
+  // Asegúrate que handleProductChange funcione bien con el estado 'products' inicializado estáticamente
   const handleProductChange = (e) => {
     const newProductId = e.target.value;
     setSelectedProductId(newProductId);
+    // Busca en el estado 'products' que ahora contiene los datos estáticos
     const product = products.find(p => p.id === newProductId);
     setSelectedProduct(product);
   };
@@ -94,13 +74,17 @@ export default function PaymentFlow({
   };
 
   const handleConfirmOrder = () => {
+    // Esta función ya guarda los datos necesarios en confirmedOrder
     setConfirmedOrder({
       productId: selectedProduct.id,
       quantity: quantity,
-      price: selectedProduct.price,
-      totalPrice: selectedProduct.price * quantity
+      price: selectedProduct.price, // Guarda el precio aquí
+      totalPrice: selectedProduct.price * quantity,
+      // Guarda también otros detalles si los necesitas mostrar
+      name: selectedProduct.name,
+      description: selectedProduct.description,
     });
-    setCurrentStep(3);
+    setCurrentStep(3); // Pasa al siguiente paso
   };
 
   const handleBack = () => {
@@ -121,15 +105,18 @@ export default function PaymentFlow({
 
   const handlePaymentSuccess = (data) => {
     if (onSuccess) onSuccess(data);
+    // Podrías añadir lógica adicional aquí si es necesario
   };
 
   const renderPaymentProvider = () => {
-    if (!selectedProduct || !mercadoPagoPublicKey) return null;
+    // Asegúrate de que confirmedOrder exista antes de renderizar
+    if (!confirmedOrder || !mercadoPagoPublicKey) return null;
 
     return (
       <PaymentProviderComponent
-        productId={selectedProduct.id}
-        quantity={quantity}
+        productId={confirmedOrder.productId} // Usa datos de confirmedOrder
+        quantity={confirmedOrder.quantity}   // Usa datos de confirmedOrder
+        price={confirmedOrder.price}         // <-- Pasa el precio desde confirmedOrder
         publicKey={mercadoPagoPublicKey}
         apiBaseUrl={apiBaseUrl}
         successUrl={successUrl}
@@ -137,49 +124,25 @@ export default function PaymentFlow({
         failureUrl={failureUrl}
         onSuccess={handlePaymentSuccess}
         onError={onError}
+        // Pasa otras props si son necesarias (className, hideTitle, etc.)
       />
     );
   };
 
-  if (loading) {
-    return (
-      <div className={cn(styles['mp-container'], className)} style={containerStyles}>
-        <div className={styles['mp-loading-spinner']}>
-          <div className={styles['mp-spinner']}></div>
-          <p>Cargando productos...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className={cn(styles['mp-container'], className)} style={containerStyles}>
-        <div className={styles['mp-error-container']}>
-          <h2>Error</h2>
-          <p>{error}</p>
-          <button
-            onClick={() => window.location.reload()}
-            className={styles['mp-button']}
-          >
-            Reintentar
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  if (products.length === 0) {
+  // --- Renderizado condicional ---
+  // Verifica si hay productos estáticos
+  if (!products || products.length === 0) {
     return (
       <div className={cn(styles['mp-container'], className)} style={containerStyles}>
         <div className={styles['mp-empty-state']}>
           <h2>No hay productos disponibles</h2>
-          <p>Vuelve a intentarlo más tarde o contacta con el administrador.</p>
+          <p>Verifica el archivo de datos local.</p>
         </div>
       </div>
     );
   }
 
+  // --- Renderizado de Steps 1, 2, 3 (sin cambios en la estructura principal) ---
   if (currentStep === 1) {
     return (
       <div className={cn(styles['mp-container'], className)} style={containerStyles}>
@@ -286,24 +249,35 @@ export default function PaymentFlow({
     );
   }
   
+  // --- Renderizado para Step 3 ---
   if (currentStep === 3 && confirmedOrder) {
     return (
       <div className={cn(styles['mp-container'], className)} style={containerStyles}>
         {!hideTitle && <h2 className={styles['mp-page-title']}>Proceso de Pago</h2>}
-        
+
         <div className={styles['mp-payment-container']}>
+          {/* Muestra un resumen bloqueado */}
           <div className={styles['mp-order-preview']}>
             <h3>Resumen del Pedido (Confirmado)</h3>
+             <div className={styles['mp-summary-item']}>
+               <span>Producto:</span>
+               <span className={styles['mp-locked-value']}>{confirmedOrder.name}</span>
+             </div>
+             <div className={styles['mp-summary-item']}>
+               <span>Cantidad:</span>
+               <span className={styles['mp-locked-value']}>{confirmedOrder.quantity}</span>
+             </div>
             <div className={styles['mp-summary-item']}>
               <span>Total a pagar:</span>
               <span className={styles['mp-locked-value']}>${confirmedOrder.totalPrice.toFixed(2)}</span>
             </div>
           </div>
-          
+
+          {/* Renderiza el proveedor de pago */}
           <div className={styles['mp-payment-wrapper']}>
             {renderPaymentProvider()}
           </div>
-          
+
           <div className={styles['mp-payment-actions']}>
             <button className={cn(styles['mp-button'], styles['mp-secondary'])} onClick={handleCancel}>
               Cancelar Pedido
@@ -313,6 +287,8 @@ export default function PaymentFlow({
       </div>
     );
   }
+  // --- Fin Renderizado Step 3 ---
 
-  return null;
+
+  return null; // O un estado por defecto si es necesario
 }

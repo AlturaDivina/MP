@@ -1,28 +1,28 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { initMercadoPago, Payment } from '@mercadopago/sdk-react';
 import styles from '../styles/MercadoPagoProvider.module.css';
 import { cn } from '../lib/utils'; // Import the utility
 
 // Función para sanitizar datos de entrada (sin cambios)
 function sanitizeInput(value, type) {
-  switch(type) {
-    case 'productId':
-      return typeof value === 'string' ? value.replace(/[^a-zA-Z0-9-]/g, '') : 'default-product-id';
-    case 'quantity':
-      const qty = parseInt(value);
-      return !isNaN(qty) && qty > 0 && qty <= 100 ? qty : 1;
-    default:
-      return value;
+  if (type === 'productId') {
+    return typeof value === 'string' ? value.trim() : null;
   }
+  if (type === 'quantity') {
+    const num = parseInt(value, 10);
+    return !isNaN(num) && num > 0 ? num : 1;
+  }
+  return value;
 }
 
 export default function MercadoPagoProvider({
   productId,
   quantity = 1,
+  price, // <-- Añade la prop price
   publicKey,
-  apiBaseUrl, // Required, validated in PaymentFlow
+  apiBaseUrl,
   successUrl,
   pendingUrl,
   failureUrl,
@@ -32,80 +32,30 @@ export default function MercadoPagoProvider({
   containerStyles = {},
   hideTitle = false,
 }) {
-  const [loading, setLoading] = useState(true);
   const [displayError, setDisplayError] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [attemptCount, setAttemptCount] = useState(0);
   const [statusMsg, setStatusMsg] = useState('');
-  const [productData, setProductData] = useState(null);
-  const [isFetchingProduct, setIsFetchingProduct] = useState(false);
 
   const sanitizedProductId = sanitizeInput(productId, 'productId');
   const sanitizedQuantity = sanitizeInput(quantity, 'quantity');
+  const sanitizedPrice = typeof price === 'number' && price > 0 ? price : 0; // Sanitiza el precio recibido
 
   useEffect(() => {
     if (publicKey) {
       initMercadoPago(publicKey);
+      setDisplayError(null); // Limpia errores si la clave pública está presente
     } else {
       const configError = 'Error de configuración: Falta la clave pública.';
       console.error('MercadoPagoProvider requires a publicKey prop.');
       setDisplayError(configError);
-      setLoading(false);
     }
   }, [publicKey]);
 
-  const fetchProduct = useCallback(async () => {
-    if (!sanitizedProductId) {
-      setDisplayError('Falta el ID del producto');
-      setLoading(false);
-      return;
-    }
-
-    if (!apiBaseUrl) {
-      setDisplayError('Falta la URL base de la API para obtener el producto');
-      setLoading(false);
-      return;
-    }
-
-    setIsFetchingProduct(true);
-    setDisplayError(null);
-    setLoading(true);
-
-    try {
-      const productUrl = `${apiBaseUrl.replace(/\/$/, '')}/api/products/${sanitizedProductId}`;
-      if (process.env.NODE_ENV === 'development') {
-        console.log('Fetching specific product from:', productUrl);
-      }
-      const response = await fetch(productUrl);
-      if (!response.ok) {
-        throw new Error(`Error ${response.status}: No se pudo obtener el producto`);
-      }
-      const productInfo = await response.json();
-      if (process.env.NODE_ENV === 'development') {
-        console.log('Product fetched successfully:', productInfo);
-      }
-      setProductData(productInfo);
-      setAttemptCount(0);
-    } catch (err) {
-      console.error('Error obteniendo producto:', err);
-      setDisplayError(`Error al cargar datos del producto: ${err.message}`);
-      setAttemptCount(prev => prev + 1);
-      if (onError) onError(err);
-    } finally {
-      setLoading(false);
-      setIsFetchingProduct(false);
-    }
-  }, [apiBaseUrl, sanitizedProductId, onError]);
-
-  useEffect(() => {
-    fetchProduct();
-  }, [fetchProduct]);
-
   const handleSubmit = async (formData) => {
-    if (isSubmitting || !productData) return;
+    if (isSubmitting) return;
 
     // --- LOG PARA DEBUG EN VERCEL ---
-    console.log('FormData received from Payment Brick:', JSON.stringify(formData, null, 2)); 
+    console.log('FormData received from Payment Brick:', JSON.stringify(formData, null, 2));
     // ---------------------------------
 
     setIsSubmitting(true);
@@ -116,11 +66,18 @@ export default function MercadoPagoProvider({
 
     try {
       const paymentEndpoint = `${apiBaseUrl.replace(/\/$/, '')}/api/process-payment`;
+      // El backend ya valida el precio usando productId y quantity
       const backendPayload = {
-        ...formData, // Asegúrate que formData realmente tenga payment_method_id aquí
+        formData: formData, // Pasamos formData directamente
         productId: sanitizedProductId,
         quantity: sanitizedQuantity,
       };
+
+      // Añade transaction_amount al payload que va al backend,
+      // usando el precio que recibimos como prop.
+      // El backend lo usará para la validación cruzada con KV.
+      backendPayload.formData.transaction_amount = sanitizedPrice * sanitizedQuantity;
+
 
       if (process.env.NODE_ENV === 'development') {
         console.log('Sending payment data to:', paymentEndpoint);
@@ -158,24 +115,29 @@ export default function MercadoPagoProvider({
           }
         }
         setDisplayError(backendErrorMsg);
-        redirectUrl = failureUrl;
+        redirectUrl = failureUrl; // Asegura redirección a fallo
       }
     } catch (e) {
       console.error('Error en handleSubmit:', e);
       setDisplayError('No se pudo completar el pago. Inténtalo nuevamente.');
       if (onError) onError(e);
+      redirectUrl = failureUrl; // Asegura redirección a fallo en error de fetch
     } finally {
       setIsSubmitting(false);
       if (redirectUrl) {
-        setTimeout(() => { window.location.href = redirectUrl; }, 1500);
+        // Añade un pequeño retraso antes de redirigir para que el usuario vea el mensaje final
+        setStatusMsg(redirectUrl === successUrl ? 'Pago aprobado. Redirigiendo...' : (redirectUrl === pendingUrl ? 'Pago pendiente. Redirigiendo...' : 'Pago fallido. Redirigiendo...'));
+        setTimeout(() => { window.location.href = redirectUrl; }, 2000); // Aumenta el tiempo si es necesario
       }
     }
   };
 
+
   const handleError = (err) => {
     console.error("Error en Payment Brick:", err);
-    setDisplayError('Error: No se pudo inicializar el formulario de pago.');
-    setIsSubmitting(false);
+    // Muestra un error más genérico al usuario
+    setDisplayError('Error: No se pudo inicializar el formulario de pago. Revisa los datos o intenta más tarde.');
+    setIsSubmitting(false); // Asegúrate de que no esté bloqueado
     if (process.env.NODE_ENV === 'development') {
       console.error('Detalles del error del Payment Brick:', err);
     }
@@ -183,60 +145,56 @@ export default function MercadoPagoProvider({
   };
 
   const handleReady = () => {
-    // Optional: Clear status message or set a 'ready' message
+    // Opcional: Limpiar mensaje de estado o indicar que está listo
     // setStatusMsg('Formulario listo.');
   };
 
-  if (loading && !productData) {
-    return (
-      <div className={cn(styles.loading, className)}>
-        <div className={styles.spinner}></div>
-        <p>Preparando formulario de pago...</p>
-      </div>
-    );
-  }
-
-  if (!productData && displayError) {
+  // Verifica si falta la clave pública o el precio
+   if (!publicKey) {
     return (
       <div className={cn(styles.errorContainer, className)}>
-        <p className={styles.errorMessage}>{displayError}</p>
-        {attemptCount < 5 && (
-          <button
-            className={styles.retryButton}
-            onClick={fetchProduct}
-            disabled={isFetchingProduct}
-          >
-            {isFetchingProduct ? 'Reintentando...' : 'Reintentar'}
-          </button>
-        )}
-        {attemptCount >= 5 && <p>Demasiados intentos fallidos.</p>}
+        <p className={styles.errorMessage}>{displayError || 'Error de configuración.'}</p>
       </div>
     );
   }
 
-  const price = productData?.price || 0;
-  const totalAmount = price * sanitizedQuantity;
+   if (sanitizedPrice <= 0) {
+     return (
+       <div className={cn(styles.errorContainer, className)}>
+         <p className={styles.errorMessage}>Error: El precio del producto no es válido.</p>
+       </div>
+     );
+   }
 
+
+  // Calcula el monto total usando el precio de la prop
+  const totalAmount = sanitizedPrice * sanitizedQuantity;
+
+  // Configuración para el Payment Brick
   const initialization = { amount: totalAmount };
   const customization = {
     visual: { hideFormTitle: false, hidePaymentButton: false },
-    paymentMethods: { creditCard: 'all', debitCard: 'all' },
+    paymentMethods: { creditCard: 'all', debitCard: 'all' }, // Ajusta según necesites
   };
 
   return (
-    <div className={cn(styles.paymentFormContainer, className)}>
+    <div className={cn(styles.paymentFormContainer, className)} style={containerStyles}>
+      {!hideTitle && <h3 className={styles.paymentTitle}>Completa tu Pago</h3>}
+      {/* Muestra el total calculado */}
+      <div className={styles.totalAmountDisplay}>
+        Total a Pagar: ${totalAmount.toFixed(2)}
+      </div>
       {statusMsg && <p className={styles.statusMessage}>{statusMsg}</p>}
-      {displayError && !isFetchingProduct && <p className={styles.errorMessage}>{displayError}</p>}
-      {productData && (
-        <Payment
-          key={sanitizedProductId}
-          initialization={initialization}
-          customization={customization}
-          onSubmit={handleSubmit}
-          onReady={handleReady}
-          onError={handleError}
-        />
-      )}
+      {displayError && <p className={styles.errorMessage}>{displayError}</p>}
+      {/* Renderiza el Payment Brick */}
+      <Payment
+        key={sanitizedProductId} // Usa productId para forzar reinicialización si cambia
+        initialization={initialization}
+        customization={customization}
+        onSubmit={handleSubmit}
+        onReady={handleReady}
+        onError={handleError}
+      />
     </div>
   );
 }
