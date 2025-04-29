@@ -1,4 +1,5 @@
 'use client';
+
 import { useState, useEffect } from 'react';
 import styles from '../styles/PaymentFlow.module.css';
 import MercadoPagoProvider from './MercadoPagoProvider';
@@ -20,20 +21,6 @@ export default function PaymentFlow({
   hideTitle = false,
   className = '',
 }) {
-  // Añade esto al principio del componente:
-  const [isMounted, setIsMounted] = useState(false);
-  
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
-
-  // Si no está montado aún, muestra un placeholder similar a la estructura del servidor
-  if (!isMounted) {
-    return <div className={cn(styles['mp-container'], className)} style={containerStyles}>
-      <div className={styles['mp-loading']}>Cargando...</div>
-    </div>;
-  }
-
   // --- Validaciones iniciales de props (sin cambios) ---
   if (!apiBaseUrl) {
     console.error("PaymentFlow Error: 'apiBaseUrl' prop is required.");
