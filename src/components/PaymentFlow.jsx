@@ -7,6 +7,8 @@ import { products as staticProducts } from '../data/products'; // <-- Importa pr
 
 export default function PaymentFlow({
   apiBaseUrl,
+  // productsEndpoint ya no se usa para fetch, pero puede mantenerse si otras partes lo necesitan
+  // productsEndpoint = '/api/products',
   mercadoPagoPublicKey,
   PaymentProviderComponent = MercadoPagoProvider,
   successUrl,
@@ -18,7 +20,7 @@ export default function PaymentFlow({
   hideTitle = false,
   className = '',
 }) {
-  // Añade esto al inicio del componente:
+  // Añade esto al principio del componente:
   const [isMounted, setIsMounted] = useState(false);
   
   useEffect(() => {
@@ -31,7 +33,7 @@ export default function PaymentFlow({
       <div className={styles['mp-loading']}>Cargando...</div>
     </div>;
   }
-  
+
   // --- Validaciones iniciales de props (sin cambios) ---
   if (!apiBaseUrl) {
     console.error("PaymentFlow Error: 'apiBaseUrl' prop is required.");
