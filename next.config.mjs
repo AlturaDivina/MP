@@ -9,17 +9,14 @@ const nextConfig = {
   async headers() {
     // CSP permisivo pero que mantiene protección básica contra script injection
     const ContentSecurityPolicy = `
-      default-src 'self' https://*.mercadopago.com https://*.mlstatic.com https://*.framer.com https://*.framer.app;
-      script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.mercadopago.com https://*.mlstatic.com https://*.framer.com;
-      style-src 'self' 'unsafe-inline' https://*.mercadopago.com https://*.mlstatic.com;
-      img-src 'self' data: blob: https://*.mercadopago.com https://*.mlstatic.com https://*.framer.com;
-      connect-src 'self' https://*.mercadopago.com https://api.mercadopago.com https://*.mlstatic.com https://*.framer.com;
-      font-src 'self' data: https://*.mlstatic.com;
+      default-src * 'unsafe-inline' 'unsafe-eval';
+      script-src * 'unsafe-inline' 'unsafe-eval';
+      style-src * 'unsafe-inline';
+      img-src * data: blob:;
+      font-src * data:;
+      connect-src *;
+      frame-src *;
       object-src 'none';
-      frame-src 'self' *;
-      frame-ancestors *; 
-      base-uri 'self';
-      upgrade-insecure-requests;
     `.replace(/\s{2,}/g, ' ').trim();
 
     return [

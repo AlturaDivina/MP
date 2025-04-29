@@ -68,16 +68,18 @@ export default function MercadoPagoProvider({
       const paymentEndpoint = `${apiBaseUrl.replace(/\/$/, '')}/api/process-payment`;
       // El backend ya valida el precio usando productId y quantity
       const backendPayload = {
-        formData: formData, // Pasamos formData directamente
+        formData: formData,
         productId: sanitizedProductId,
         quantity: sanitizedQuantity,
       };
 
-      // Añade transaction_amount al payload que va al backend,
-      // usando el precio que recibimos como prop.
-      // El backend lo usará para la validación cruzada con KV.
-      backendPayload.formData.transaction_amount = sanitizedPrice * sanitizedQuantity;
-
+      // Asegúrate que formData tenga esta estructura correcta:
+      // {
+      //   token: "c6547e7e98fa7f0801437c2551e683e",
+      //   payment_method_id: "visa",
+      //   installments: 1,
+      //   payer: { email: "test_user@example.com" }
+      // }
 
       if (process.env.NODE_ENV === 'development') {
         console.log('Sending payment data to:', paymentEndpoint);

@@ -35,7 +35,9 @@ export async function POST(req) {
   try {
     const body = await req.json();
     const { formData, productId, quantity } = body;
-    const { token, issuer_id, payment_method_id, installments, payer } = formData || {};
+    // Si los datos vienen en formData.formData:
+    const { token, issuer_id, payment_method_id, installments, payer } = 
+      (formData.formData || formData); // Intenta ambas estructuras
 
     // Validar datos esenciales (añadir más validaciones si es necesario)
     if (!token || !payment_method_id || !installments || !payer?.email || !productId || !quantity || quantity < 1) {
