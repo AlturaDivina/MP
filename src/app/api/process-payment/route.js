@@ -45,14 +45,34 @@ export async function POST(req) {
       return NextResponse.json({ error: 'Faltan datos requeridos o inválidos para el pago' }, { status: 400 });
     }
 
-    // --- Validación de Precio (CRÍTICO) usando datos ESTÁTICOS ---
-    const product = getStaticProductById(productId);
-    if (!product) {
-      return NextResponse.json({ error: 'Producto no encontrado en el catálogo local' }, { status: 404 });
+    // --- Validación de Precio (CRÍTICO) usando ambas fuentes ---
+    let product = null;
+
+    // Primero intentar obtener de KV
+    try {
+      const productKey = `product:${productId}`;
+      const kvProduct = await kv.get(productKey);
+      if (kvProduct && typeof kvProduct.price === 'number') {
+        product = kvProduct;
+        console.log('Producto obtenido de KV:', productId);
+      }
+    } catch (error) {
+      console.error('Error obteniendo producto desde KV:', error);
     }
+
+    // Si no se encontró en KV, usar datos estáticos
+    if (!product) {
+      product = getStaticProductById(productId);
+      console.log('Producto obtenido de datos estáticos:', productId);
+    }
+
+    if (!product) {
+      return NextResponse.json({ error: 'Producto no encontrado' }, { status: 404 });
+    }
+
     if (typeof product.price !== 'number') {
-      console.error(`Invalid price found in static data for ${productId}:`, product.price);
-      return NextResponse.json({ error: 'Precio del producto inválido en los datos estáticos' }, { status: 500 });
+      console.error(`Invalid price found for ${productId}:`, product.price);
+      return NextResponse.json({ error: 'Precio del producto inválido' }, { status: 500 });
     }
     const expectedAmount = product.price * quantity;
     if (formData.transaction_amount !== expectedAmount) {
