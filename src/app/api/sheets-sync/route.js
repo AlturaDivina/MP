@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { kv } from '../../../lib/kv';
+import { kv, getProductStock, updateProductStock } from '../../../lib/kv';
 import { products as staticProducts } from '../../../data/products';
 
 // IMPORTANTE: Clave secreta para autorizar las peticiones desde Sheets
@@ -10,24 +10,28 @@ export async function POST(req) {
     // Verificar autenticación
     const body = await req.json();
     
-    if (!body.auth || body.auth !== API_SECRET_KEY) {
+    // Verificamos si está usando secretKey (nombre del campo en Google Apps Script) o auth
+    if ((!body.secretKey && !body.auth) || (body.secretKey !== API_SECRET_KEY && body.auth !== API_SECRET_KEY)) {
       console.warn('Intento de acceso no autorizado a sheets-sync API');
       return NextResponse.json({ success: false, error: 'No autorizado' }, { status: 401 });
     }
     
     // Procesar diferentes operaciones
-    const { operation } = body;
+    const { action, operation } = body;
+    const effectiveOperation = action || operation; // Compatibilidad con ambos campos
     let result;
     
-    switch (operation) {
+    switch (effectiveOperation) {
       case 'fetch':
         result = await fetchData();
         break;
         
+      case 'update_stock':
       case 'update-stock':
         result = await updateStock(body.updates);
         break;
         
+      case 'update_products':
       case 'update-products':
         result = await updateProducts(body.products);
         break;
@@ -50,17 +54,22 @@ export async function POST(req) {
 // Obtiene todos los productos y su stock actual
 async function fetchData() {
   try {
-    // Obtener las claves de productos y stock
+    // Obtener las claves de productos
     const productKeys = await kv.keys('product:*');
-    const stockKeys = await kv.keys('stock:*');
+    
+    // CORRECCIÓN: Usar formato correcto para claves de stock
+    const stockKeys = await kv.keys('product:*:stock');
     
     // Si no hay productos, usar los datos estáticos
     let products;
     if (!productKeys || productKeys.length === 0) {
       products = staticProducts;
     } else {
+      // Filtrar las claves que no son de stock (para evitar duplicados)
+      const pureProdKeys = productKeys.filter(key => !key.endsWith(':stock'));
+      
       // Obtener los datos de productos desde KV
-      const productValues = await kv.mget(...productKeys);
+      const productValues = await kv.mget(...pureProdKeys);
       products = productValues.filter(p => p !== null);
     }
     
@@ -71,9 +80,12 @@ async function fetchData() {
       
       // Construir objeto de stock
       stockKeys.forEach((key, index) => {
-        // Extraer ID del formato 'stock:ID'
-        const id = key.split(':')[1];
-        stock[id] = stockValues[index];
+        // CORRECCIÓN: Extraer ID del formato 'product:ID:stock'
+        const parts = key.split(':');
+        if (parts.length >= 3) {
+          const id = parts[1]; // Obtener el ID (segundo elemento)
+          stock[id] = stockValues[index];
+        }
       });
     }
     
@@ -105,10 +117,11 @@ async function updateStock(updates) {
         continue;
       }
       
-      const stockKey = `stock:${update.id}`;
+      // CORRECCIÓN: Usar formato correcto para la clave de stock
+      const productId = update.id;
       
-      // Obtener stock actual
-      let currentStock = await kv.get(stockKey) || 0;
+      // Obtener stock actual usando la función auxiliar
+      let currentStock = await getProductStock(productId);
       
       // Calcular nuevo stock (incremento/decremento según el valor)
       const newStock = currentStock + update.change;
@@ -116,11 +129,11 @@ async function updateStock(updates) {
       // No permitir stock negativo (opcional)
       const finalStock = Math.max(0, newStock);
       
-      // Actualizar en KV
-      await kv.set(stockKey, finalStock);
+      // Actualizar en KV usando la función auxiliar
+      await updateProductStock(productId, finalStock);
       
       // Guardar resultado
-      results[update.id] = finalStock;
+      results[productId] = finalStock;
     }
     
     return {
@@ -145,31 +158,64 @@ async function updateProducts(products) {
   try {
     // Procesar cada producto
     for (const product of products) {
-      if (!product.id || !product.name || typeof product.price !== 'number') {
-        results[product.id || 'unknown'] = 'Error: datos inválidos';
+      if (!product.id) {
+        results['unknown'] = 'Error: ID de producto requerido';
         continue;
       }
       
       const productKey = `product:${product.id}`;
       
-      // Actualizar en KV
-      await kv.set(productKey, {
-        id: product.id,
-        name: product.name,
-        description: product.description || '',
-        price: product.price,
-        category: product.category || 'general'
-      });
+      // Obtener el producto existente
+      const existingProduct = await kv.get(productKey);
       
-      // Guardar resultado
-      results[product.id] = 'Actualizado';
+      if (!existingProduct) {
+        // Para productos nuevos sí exigir todos los campos
+        if (!product.name || typeof product.price !== 'number') {
+          results[product.id] = 'Error: nombre y precio requeridos para nuevos productos';
+          continue;
+        }
+        
+        // Crear nuevo producto
+        await kv.set(productKey, {
+          id: product.id,
+          name: product.name,
+          description: product.description || '',
+          price: product.price,
+          category: product.category || 'general'
+        });
+        
+        // Si se proporciona stock inicial, establecerlo
+        if (product.hasOwnProperty('stockAvailable')) {
+          await updateProductStock(product.id, product.stockAvailable);
+        }
+        
+        results[product.id] = 'Nuevo producto creado';
+      } else {
+        // Para productos existentes, actualizar solo los campos proporcionados
+        const updatedProduct = {
+          ...existingProduct,
+          // Actualizar solo los campos proporcionados
+          ...(product.name && { name: product.name }),
+          ...(product.description !== undefined && { description: product.description }),
+          ...(typeof product.price === 'number' && { price: product.price }),
+          ...(product.category && { category: product.category })
+        };
+        
+        await kv.set(productKey, updatedProduct);
+        
+        // Si se proporciona stock, actualizarlo
+        if (product.hasOwnProperty('stockAvailable')) {
+          await updateProductStock(product.id, product.stockAvailable);
+        }
+        
+        results[product.id] = 'Producto actualizado';
+      }
     }
     
     return {
       success: true,
       results: results
     };
-    
   } catch (error) {
     console.error('Error actualizando productos desde Google Sheets:', error);
     throw error;

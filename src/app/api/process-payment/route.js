@@ -1,8 +1,8 @@
 import { MercadoPagoConfig, Payment } from 'mercadopago';
 import { NextResponse } from 'next/server';
 import rateLimit from '../rate-limit';
-import { kv } from '../../../lib/kv'; // Mantenemos kv para GET y DECRBY
-import { products as staticProducts } from '../../../data/products'; // <-- Importa productos estáticos
+import { kv, getProductStock, updateProductStock } from '../../../lib/kv'; // Importar funciones de stock
+import { products as staticProducts } from '../../../data/products';
 
 // Función auxiliar para buscar producto estático por ID
 function getStaticProductById(id) {
@@ -61,36 +61,28 @@ export async function POST(req) {
     }
     // --- Fin Validación de Precio ---
 
-    // --- Verificación de Stock (usando KV) ---
-    const stockKey = `stock:${productId}`;
-    let currentStock = 0;
+    // --- Verificación de Stock (usando getProductStock) ---
     try {
-        const stockValue = await kv.get(stockKey);
-        currentStock = (typeof stockValue === 'number') ? stockValue : 0;
+        const currentStock = await getProductStock(productId);
         console.log(`Stock check for ${productId}: Found ${currentStock}, Requested ${quantity}`);
-    } catch (kvError) {
-        console.error(`Error fetching stock from KV for ${stockKey}:`, kvError);
-        // Mantenemos el fallo si no se puede leer el stock por seguridad
+        
+        // --- Lógica de error de stock mejorada ---
+        if (currentStock <= 0) {
+            console.warn(`Attempted purchase for out-of-stock product ${productId}.`);
+            return NextResponse.json({
+                error: `Lo sentimos, "${product.name}" está agotado.` // Mensaje "Sold Out"
+            }, { status: 400 });
+        } else if (currentStock < quantity) {
+            console.warn(`Insufficient stock for ${productId}: Available ${currentStock}, Requested ${quantity}`);
+            return NextResponse.json({
+                error: `Stock insuficiente para "${product.name}". Solo quedan ${currentStock} unidades disponibles.`
+            }, { status: 400 });
+        }
+    } catch (error) {
+        console.error(`Error fetching stock for ${productId}:`, error);
         return NextResponse.json({ error: 'Error temporal al verificar disponibilidad. Intenta de nuevo.' }, { status: 500 });
     }
-
-    // --- Lógica de error de stock mejorada ---
-    if (currentStock <= 0) {
-        // Si el stock es 0 o menos (por si acaso)
-        console.warn(`Attempted purchase for out-of-stock product ${productId}.`);
-        return NextResponse.json({
-            error: `Lo sentimos, "${product.name}" está agotado.` // Mensaje "Sold Out"
-        }, { status: 400 }); // 400 Bad Request es apropiado
-    } else if (currentStock < quantity) {
-        // Si hay stock, pero no suficiente para la cantidad pedida
-        console.warn(`Insufficient stock for ${productId}: Available ${currentStock}, Requested ${quantity}`);
-        return NextResponse.json({
-            // Mensaje claro indicando el problema y la cantidad disponible
-            error: `Stock insuficiente para "${product.name}". Solo quedan ${currentStock} unidades disponibles.`
-        }, { status: 400 });
-    }
     // --- Fin Verificación de Stock ---
-
 
     console.log('Processing payment (static price validation, KV stock check) for product:', productId, 'Amount:', expectedAmount);
 
@@ -101,30 +93,28 @@ export async function POST(req) {
       transaction_amount: expectedAmount,
       installments: installments,
       payer: { email: payer.email },
-      // Considera añadir metadata si es útil
-      // metadata: { product_id: productId, quantity: quantity }
     };
 
     const paymentResult = await payment.create({ body: paymentData });
 
-    console.log('Mercado Pago API Response Status:', { // Log only specific, non-sensitive fields
+    console.log('Mercado Pago API Response Status:', { 
         id: paymentResult.id, 
         status: paymentResult.status, 
         status_detail: paymentResult.status_detail 
     });
 
-    // --- Actualización de Stock (usando KV) ---
+    // --- Actualización de Stock (usando updateProductStock) ---
     if (paymentResult.status === 'approved') {
         try {
-            // Usa DECRBY para la operación atómica de decremento
-            const newStock = await kv.decrby(stockKey, quantity); // Reutiliza stockKey
-            console.log(`Stock for ${productId} updated via KV to ${newStock}`);
-            if (newStock < 0) {
-                console.warn(`Stock for ${productId} went negative (${newStock}) after payment ${paymentResult.id}.`);
-                // Considera lógica de compensación aquí si es necesario
-            }
+            // Obtener stock actual y restar cantidad comprada
+            const currentStock = await getProductStock(productId);
+            const newStock = currentStock - quantity;
+            
+            // Actualizar stock usando la función específica
+            await updateProductStock(productId, newStock);
+            console.log(`Stock for ${productId} updated to ${newStock}`);
         } catch (stockError) {
-            console.error(`Failed to update stock via KV for ${productId} after payment ${paymentResult.id}:`, stockError);
+            console.error(`Failed to update stock for ${productId} after payment ${paymentResult.id}:`, stockError);
         }
     }
     // --- Fin Actualización de Stock ---
