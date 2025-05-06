@@ -7,6 +7,7 @@ const products = [
     category: 'ejemplos',
     stockAvailable: 5
   },
+  
   {
     id: '2',
     name: 'Blanco',
