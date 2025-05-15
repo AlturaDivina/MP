@@ -1,4 +1,4 @@
-/* Estilos para el flujo de pago */
+/* Base container styles */
 .mp-container {
   font-family: 'Inter', sans-serif;
   max-width: 1200px;
@@ -7,7 +7,7 @@
   color: #333;
 }
 
-/* Estilos mejorados para el resumen y confirmación del pedido */
+/* Page title styles */
 .mp-page-title {
   font-family: 'Playfair Display SC', 'Bodoni Moda', Georgia, serif;
   font-size: 2rem;
@@ -27,566 +27,891 @@
   left: 50%;
   transform: translateX(-50%);
   width: 3rem;
-  height: 1px;
-  background-color: var(--mp-primary-button-color) !important;
+  height: 3px;
+  background-color: var(--mp-primary-button-color, #F26F32);
 }
 
-/* Formulario y selección de productos */
-.mp-product-selection-container {
-  max-width: 650px;
-  margin: 0 auto 2rem;
+/* Product page layout (step 1) */
+.mp-product-page-layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
 }
 
+@media (max-width: 768px) {
+  .mp-product-page-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Product selection section */
+.mp-product-selection {
+  background-color: #fff;
+  border-radius: 8px;
+  padding: 1.5rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+.mp-section-subtitle {
+  margin: 0 0 1.5rem;
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: #333;
+}
+
+.mp-product-form {
+  padding: 0.5rem;
+}
+
+/* Form group */
 .mp-form-group {
-  margin-bottom: 1.5rem;
+  margin-bottom: 1.25rem;
 }
 
 .mp-form-group label {
   display: block;
-  font-family: 'Inter', sans-serif;
-  font-weight: 500;
-  margin-bottom: 0.5rem;
   font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
   text-transform: uppercase;
-  letter-spacing: 0.05rem;
+  letter-spacing: 0.05em;
 }
 
-/* Hacer responsive las filas de formulario */
-.mp-form-row {
-  display: flex;
-  gap: 1rem;
-  flex-wrap: wrap;
+.mp-required {
+  color: var(--mp-primary-button-color, #F26F32);
 }
 
-.mp-form-row .mp-form-group {
-  flex: 1 1 45%;
-  min-width: 200px;
-}
-
-/* En móvil, apilar vertical */
-@media (max-width: 767px) {
-  .mp-form-row {
-    flex-direction: column;
-  }
-}
-
-/* Selector base */
+/* Select and number inputs */
 .mp-select-input,
+.mp-text-input,
 .mp-number-input {
   width: 100%;
   padding: 0.75rem 1rem;
-  border: 1px solid #ccc;
+  border: 1px solid #ddd;
   border-radius: 4px;
-  font-size: 0.95rem;
-  font-family: inherit;
-  height: 60px;  /* Altura base en todas las pantallas */
+  font-size: 1rem;
+  line-height: 1.5;
   box-sizing: border-box;
+  background-color: #fff;
 }
 
-/* Mejoras específicas para el select */
 .mp-select-input {
+  appearance: none;
   background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24'%3E%3Cpath fill='%23333' d='M7 10l5 5 5-5z'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 1rem center;
-  background-size: 16px;
-  padding-right: 2.5rem; /* Espacio para el ícono de flecha */
-  -webkit-appearance: none;
-  -moz-appearance: none;
-  appearance: none;
+  padding-right: 2.5rem;
+}
+
+/* Quantity control */
+.mp-quantity-control {
+  display: flex;
+  align-items: center;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.mp-quantity-button {
+  background-color: #f5f5f5;
+  border: none;
+  height: 40px;
+  width: 40px;
+  font-size: 1.2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.mp-quantity-button:hover {
+  background-color: #e8e8e8;
+}
+
+.mp-number-input {
+  border: none;
+  border-left: 1px solid #ddd;
+  border-right: 1px solid #ddd;
+  border-radius: 0;
+  text-align: center;
+  width: calc(100% - 80px);
+  flex-grow: 1;
+  padding: 0.75rem 0.5rem;
+}
+
+/* Product preview */
+.mp-product-preview {
+  background-color: #f9f9f9;
+  padding: 1rem;
+  border-radius: 4px;
+  margin: 1rem 0;
+}
+
+.mp-product-preview h4 {
+  margin: 0 0 0.5rem;
+  font-size: 1.1rem;
+  color: #222;
+}
+
+.mp-product-preview p {
+  margin: 0 0 1rem;
+  color: #555;
+  font-size: 0.95rem;
   line-height: 1.5;
 }
 
-.mp-product-details {
-  border: 1px solid #eee;
-  border-radius: 4px;
-  padding: 1.25rem;  /* Algo más compacto */
-  margin: 1.5rem 0;
-  transition: all 0.2s ease;
-}
-
-.mp-product-details:hover {
-  box-shadow: var(--box-shadow);
-}
-
-.mp-product-details h3 {
-  color: var(--text-color);
-  border-bottom: 1px solid var(--border-color);
-  padding-bottom: 0.8rem;
-  margin-bottom: 1.2rem;
-}
-
-.mp-product-description {
-  margin-bottom: 1.5rem;
-  line-height: 1.6;
-}
-
-.mp-product-price {
-  background-color: #f9f9f9;
-  border-radius: 4px;
-  padding: 1.25rem;
-  margin-top: 1.25rem;
-  font-weight: 500;
-  border-left: 3px solid var(--mp-primary-button-color) !important;
+.mp-product-price-tag {
   display: flex;
   justify-content: space-between;
   align-items: center;
-}
-
-.mp-price-value {
-  font-size: 1.4rem;  /* Reducido de 1.8rem */
-  font-weight: 600;
   color: #333;
+  font-weight: 500;
 }
 
-/* Botones */
-.mp-button-container {
-  margin-top: 2rem;
-  display: flex;
-  justify-content: flex-end;
-  gap: 1rem;
-  flex-wrap: wrap; /* Para que los botones se apilen si no caben */
+.mp-product-price-tag span:first-child {
+  font-size: 1.2rem;
+  font-weight: bold;
+  color: var(--mp-primary-button-color, #F26F32);
 }
 
-.mp-button {
-  padding: 0.75rem 1.5rem;  /* Más compacto */
+.mp-product-price-tag span:last-child {
+  background-color: #e8f5e9;
+  color: #2e7d32;
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.85rem;
+}
+
+/* Add to cart button */
+.mp-add-to-cart-button {
+  background-color: var(--mp-primary-button-color, #F26F32);
+  color: white;
   border: none;
   border-radius: 4px;
-  font-size: 0.9rem;  /* Ligeramente más pequeño */
+  padding: 0.75rem 1.5rem;
+  font-size: 1rem;
+  font-weight: 600;
   cursor: pointer;
-  font-weight: 500;
-  font-family: 'Inter', sans-serif;
-  text-transform: uppercase;
-  letter-spacing: 0.05rem;
-  flex-grow: 1; /* Permite que los botones crezcan para llenar el espacio en móvil */
-  min-width: 150px; /* Un ancho mínimo para legibilidad */
-  text-align: center;
+  width: 100%;
+  margin-top: 1rem;
+  transition: background-color 0.2s ease;
 }
 
-@media (min-width: 600px) {
-  .mp-button {
-    flex-grow: 0; /* Evita que crezcan demasiado en pantallas más grandes si no quieres */
-  }
+.mp-add-to-cart-button:hover {
+  background-color: color-mix(in srgb, var(--mp-primary-button-color, #F26F32) 90%, black);
 }
 
-/* Botón principal */
-.mp-button.mp-primary {
-  background-color: var(--mp-primary-button-color, #F26F32) !important;
-  color: white;
-  font-weight: 600;
-}
-
-.mp-button.mp-primary:hover {
-  background-color: color-mix(in srgb, var(--mp-primary-button-color, #F26F32) 90%, black) !important;
-}
-
-/* Botón secundario */
-.mp-button.mp-secondary {
-  background-color: var(--mp-secondary-button-color, #E5E5E5) !important;
-  color: #333;
-}
-
-.mp-button.mp-secondary:hover {
-  background-color: color-mix(in srgb, var(--mp-secondary-button-color, #E5E5E5) 90%, black) !important;
-}
-
-/* Botón grande de confirmación */
-.mp-confirmation-actions .mp-button.mp-primary {
-  padding: 0.85rem 2rem;
-  background-color: var(--mp-primary-button-color) !important;
-  border-color: var(--mp-primary-button-color) !important;
-}
-
-/* Confirmation page */
-.mp-confirmation-container {
-  max-width: 700px;
-  margin: 0 auto 2rem;
-  background-color: #fafafa;
+/* Product remove */
+.mp-product-remove {
+  background-color: transparent;
+  color: #888;
+  border: 1px solid #ddd;
   border-radius: 4px;
-  border: 1px solid #eee;
-  padding: 2rem;
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
+  padding: 0.5rem;
+  font-size: 0.9rem;
+  cursor: pointer;
+  width: 100%;
+  margin-top: 0.5rem;
 }
 
-/* Título del resumen con estilo elegante */
-.mp-confirmation-container h3 {
-  font-family: 'Playfair Display SC', 'Bodoni Moda', Georgia, serif;
-  font-size: 1.3rem;
-  font-weight: 400;
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
+.mp-product-remove:hover {
+  background-color: #f5f5f5;
+  color: #666;
+}
+
+/* Cart column */
+.mp-cart-column {
+  padding: 0 0 1rem;
+}
+
+/* Cart summary */
+.mp-cart-summary {
+  background-color: #fff;
+  border-radius: 8px;
+  border: 1px solid #e0e0e0;
+  padding: 1.5rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+.mp-cart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   margin-bottom: 1.5rem;
+  border-bottom: 1px solid #f0f0f0;
+  padding-bottom: 0.75rem;
+}
+
+.mp-cart-header h3 {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 600;
   color: #333;
 }
 
-.mp-confirmation-title {
+.mp-cart-icon {
+  font-size: 1.2rem;
+}
+
+/* Cart empty state */
+.mp-cart-empty {
   text-align: center;
-  font-size: 1.5rem;
+  padding: 2rem 0;
+  color: #888;
+}
+
+.mp-cart-empty p {
+  margin: 0.5rem 0;
+}
+
+/* Cart items */
+.mp-cart-items {
   margin-bottom: 1.5rem;
-  font-weight: 600;
-  text-transform: uppercase;
+  max-height: 300px;
+  overflow-y: auto;
 }
 
-.mp-summary {
-  margin-bottom: 2rem;
-  border-bottom: 1px solid var(--border-color);
-  padding-bottom: 2rem;
-}
-
-/* Mejora el espaciado en los items del resumen */
-.mp-summary-item {
+.mp-cart-item {
   display: grid;
-  grid-template-columns: 40% 60%;
-  padding: 0.75rem 0;
+  grid-template-columns: auto 1fr auto auto;
+  gap: 0.75rem;
+  padding: 1rem 0;
   border-bottom: 1px solid #f0f0f0;
-  gap: 1rem;
-  align-items: start;
+  align-items: center;
 }
 
-/* Asegura que las etiquetas tengan el ancho adecuado */
-.mp-summary-item span:first-child {
-  font-weight: 600;
-  text-transform: uppercase;
-  font-size: 0.8rem;
-  letter-spacing: 0.05em;
-  color: #555;
-}
-
-/* Mejora la presentación de los valores */
-.mp-summary-item span:last-child {
-  font-weight: 400;
-  font-size: 0.95rem;
-  word-break: break-word;
-}
-
-.mp-summary-item:last-child {
+.mp-cart-item:last-child {
   border-bottom: none;
 }
 
-/* Media query para pantallas pequeñas */
-@media (max-width: 520px) { /* Ajusta el breakpoint si es necesario */
-  .mp-summary-item {
-    grid-template-columns: 1fr;
-    row-gap: 0.25rem;
-    padding: 0.85rem 0;
-  }
-  
-  .mp-summary-item span:first-child {
-    margin-bottom: 0.25rem;
-  }
+.mp-cart-item-image {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #f5f5f5;
+  border-radius: 4px;
+  overflow: hidden;
 }
 
-/* Estilo para el precio total más destacado */
-.mp-total {
+.mp-item-placeholder {
+  width: 100%;
+  height: 100%;
+  background-color: #e0e0e0;
+}
+
+.mp-cart-item-details {
+  overflow: hidden;
+}
+
+.mp-cart-item-details h4 {
+  margin: 0 0 0.25rem;
+  font-size: 0.9rem;
+  color: #333;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.mp-cart-item-quantity {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.mp-cart-quantity-button {
+  background: none;
+  border: none;
+  padding: 0.25rem;
+  cursor: pointer;
+  color: #666;
+  font-size: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mp-cart-item-price {
   font-weight: 600;
-  font-size: 1.1rem;
-  color: #222;
-  background-color: #f9f9f9;
-  padding: 0.75rem 1rem;
-  border-radius: 4px;
+  color: #333;
+}
+
+.mp-cart-item-remove {
+  background: none;
+  border: none;
+  padding: 0.25rem;
+  cursor: pointer;
+  color: #999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+}
+
+.mp-cart-item-remove:hover {
+  color: #d32f2f;
+}
+
+/* Cart total */
+.mp-cart-total-section {
+  display: flex;
+  justify-content: space-between;
+  padding: 1rem 0;
+  border-top: 1px solid #f0f0f0;
+  font-weight: 600;
   margin-top: 1rem;
 }
 
-.mp-total span:first-child {
-  font-weight: 700;
+.mp-total-label {
+  font-size: 1.1rem;
+}
+
+.mp-total-amount {
+  font-size: 1.3rem;
+  color: var(--mp-primary-button-color, #F26F32);
+}
+
+/* Continue button */
+.mp-continue-button {
+  width: 100%;
+  background-color: var(--mp-primary-button-color, #F26F32);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 0.9rem;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 1.5rem;
+  transition: background-color 0.2s;
+}
+
+.mp-continue-button:hover {
+  background-color: color-mix(in srgb, var(--mp-primary-button-color, #F26F32) 90%, black);
+}
+
+.mp-continue-button:disabled {
+  background-color: #e0e0e0;
+  color: #999;
+  cursor: not-allowed;
+}
+
+/* Buyer form container (step 2) */
+.mp-buyer-form-container {
+  max-width: 720px;
+  margin: 0 auto;
+  background-color: #fff;
+  border-radius: 8px;
+  padding: 2rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+.mp-form-section {
+  margin-bottom: 2rem;
+}
+
+.mp-section-title {
+  font-size: 1.3rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  color: #222;
+}
+
+.mp-section-subtitle {
+  color: #666;
+  margin-bottom: 1.5rem;
+  font-size: 0.95rem;
+}
+
+.mp-form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+@media (max-width: 600px) {
+  .mp-form-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Phone input */
+.mp-phone-container {
+  width: 100% !important;
+}
+
+.mp-phone-input {
+  width: 100% !important;
+  padding: 0.75rem 0.75rem 0.75rem 50px !important;
+}
+
+.mp-form-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 2rem;
+}
+
+.mp-button-primary,
+.mp-button-secondary {
+  padding: 0.75rem 2.5rem;
+  border-radius: 4px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  border: none;
+}
+
+.mp-button-primary {
+  background-color: var(--mp-primary-button-color, #F26F32);
+  color: white;
+}
+
+.mp-button-primary:hover {
+  background-color: color-mix(in srgb, var(--mp-primary-button-color, #F26F32) 90%, black);
+}
+
+.mp-button-secondary {
+  background-color: var(--mp-secondary-button-color, #E5E5E5);
   color: #333;
 }
 
-.mp-total span:last-child {
+.mp-button-secondary:hover {
+  background-color: color-mix(in srgb, var(--mp-secondary-button-color, #E5E5E5) 90%, black);
+}
+
+/* Confirmation container (step 3) */
+.mp-confirmation-container {
+  max-width: 720px;
+  margin: 0 auto;
+  background-color: #fff;
+  border-radius: 8px;
+  padding: 2rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+.mp-order-summary {
+  margin-bottom: 2rem;
+}
+
+.mp-summary-title {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 1.15rem;
+  font-weight: 600;
+  margin-bottom: 1.5rem;
+  color: #333;
+}
+
+.mp-summary-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background-color: #4caf50;
+  color: white;
+  font-size: 0.8rem;
+  font-weight: bold;
+}
+
+.mp-summary-product {
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  background-color: #fafafa;
+  border-radius: 8px;
+}
+
+.mp-summary-product-header {
+  position: relative;
+  margin-bottom: 0.75rem;
+}
+
+.mp-summary-product-line {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background-color: var(--mp-primary-button-color, #F26F32);
+  border-radius: 2px;
+}
+
+.mp-summary-product-header h4 {
+  margin: 0;
+  padding-left: 1rem;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #333;
+}
+
+.mp-summary-product-desc {
+  margin: 0.5rem 0 1rem;
+  padding-left: 1rem;
+  color: #666;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.mp-summary-product-details {
+  padding: 0.75rem;
+  background-color: white;
+  border-radius: 4px;
+  border: 1px solid #eee;
+}
+
+.mp-summary-detail {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.5rem 0;
+  font-size: 0.9rem;
+  color: #666;
+}
+
+.mp-summary-detail-total {
+  display: flex;
+  justify-content: space-between;
+  padding-top: 0.75rem;
+  margin-top: 0.5rem;
+  border-top: 1px solid #eee;
+  font-weight: 600;
+  color: #333;
+}
+
+.mp-buyer-info {
+  margin-top: 2rem;
+  padding: 1.5rem;
+  background-color: #f9f9f9;
+  border-radius: 8px;
+}
+
+.mp-buyer-info-title {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 1.15rem;
+  font-weight: 600;
+  margin-bottom: 1.5rem;
+  color: #333;
+}
+
+.mp-user-icon {
+  font-size: 1.2rem;
+}
+
+.mp-buyer-section {
+  margin-bottom: 1.5rem;
+}
+
+.mp-buyer-section h4 {
+  font-size: 1rem;
+  margin: 0 0 0.75rem;
+  color: #555;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 0.5rem;
+}
+
+.mp-buyer-detail {
+  display: flex;
+  margin-bottom: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.mp-buyer-detail span:first-child {
+  font-weight: 600;
+  width: 120px;
+  min-width: 120px;
+  color: #555;
+}
+
+.mp-buyer-detail span:last-child {
+  color: #333;
+}
+
+.mp-total-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 2rem;
+  padding: 1rem 1.5rem;
+  background-color: #f5f5f5;
+  border-radius: 4px;
+  border-left: 5px solid var(--mp-primary-button-color, #F26F32);
   font-weight: 700;
   font-size: 1.2rem;
-  color: #333;
-}
-
-.mp-confirmation-note {
-  background-color: #fff8f6;
-  border-left: 4px solid var(--primary-color);
-  padding: 1rem;
-  margin: 2rem 0;
-  font-size: 0.95rem;
-  color: #555;
-  border-radius: 0 var(--border-radius) var(--border-radius) 0;
-  margin-bottom: 16px;
 }
 
 .mp-confirmation-actions {
-  margin-top: 10px;
-  background-color: #f9f9f9;
-  border-radius: 8px;
-  padding: 16px;
-  border-left: 5px solid var(--mp-primary-button-color) !important;
+  margin-top: 2rem;
+  text-align: right;
 }
 
-/* Ajustes responsivos para la confirmación del pedido */
-@media (max-width: 767px) {
-  /* Reducir el padding en contenedores para móviles */
-  .mp-confirmation-container {
-    padding: 1.25rem;
-    margin: 0 auto 1rem;
-  }
-  
-  /* Ajustar tamaño del título en móvil */
-  .mp-confirmation-container h3 {
-    font-size: 1.1rem;
-    margin-bottom: 1rem;
-  }
-  
-  /* El contenedor de botones en móvil debe apilar verticalmente */
-  .mp-confirmation-actions .mp-button-container {
-    flex-direction: column;
-    gap: 0.75rem;
-  }
-  
-  /* Botones a ancho completo en móvil */
-  .mp-confirmation-actions .mp-button {
-    width: 100%;
-    margin-right: 0;
-    font-size: 0.85rem;
-    padding: 0.75rem 1rem;
-  }
-  
-  /* Ajustar nota de confirmación */
-  .mp-confirmation-note {
-    font-size: 0.8rem;
-    padding: 0.75rem;
-    margin: 1.5rem 0;
-  }
-  
-  /* Ajustar márgenes del total */
-  .mp-total {
-    margin-top: 0.75rem;
-    padding: 0.5rem 0.75rem;
-  }
-  
-  /* Reducir tamaño de texto del total */
-  .mp-total span:last-child {
-    font-size: 1.1rem;
-  }
-  
-  /* Campos de formulario en vista móvil - manteniendo altura original */
-  .mp-select-input,
-  .mp-number-input {
-    height: 60px !important; /* Forzar la misma altura */
-    font-size: 16px; /* Este tamaño previene zoom en iOS */
-    line-height: 1.2; /* Asegura que el texto esté centrado verticalmente */
-  }
+.mp-action-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
 }
 
-/* Para pantallas muy pequeñas */
-@media (max-width: 480px) {
-  /* Reducir aún más el padding */
-  .mp-confirmation-container {
-    padding: 1rem;
-  }
-  
-  /* Ajustar texto de botón grande */
-  .mp-confirmation-actions .mp-button.mp-primary {
-    font-size: 0.8rem;
-    white-space: normal; /* Permitir que el texto se rompa en varias líneas */
-    height: auto;
-    padding: 0.75rem 0.5rem;
-  }
-  
-  .mp-select-input,
-  .mp-number-input {
-    height: 60px !important; /* Mantener altura */
-    font-size: 16px; /* Mantener tamaño de fuente */
-  }
-}
-
-/* Ajustes responsivos generales para todo el flujo de pago */
-@media (max-width: 767px) {
-  /* Contenedor principal más compacto */
-  .mp-container {
-    padding: 1rem;
-  }
-  
-  /* Título principal más pequeño */
-  .mp-page-title {
-    font-size: 1.5rem;
-    margin-bottom: 2rem;
-  }
-  
-  /* Contenedor de confirmación */
-  .mp-confirmation-container {
-    padding: 1.25rem;
-    margin: 0 auto 1rem;
-    width: 100%;
-    max-width: 100%;
-    box-sizing: border-box;
-  }
-  
-  /* Título del resumen más pequeño */
-  .mp-confirmation-container h3 {
-    font-size: 1.1rem;
-    margin-bottom: 1rem;
-  }
-  
-  /* Ajustar tamaño del resumen para mejorar legibilidad */
-  .mp-summary {
-    margin-bottom: 1.5rem;
-    padding-bottom: 1.5rem;
-  }
-  
-  /* Botones en columna con tamaño completo */
-  .mp-confirmation-actions .mp-button-container {
-    flex-direction: column;
-    gap: 0.75rem;
-  }
-  
-  .mp-confirmation-actions .mp-button {
-    width: 100%;
-    margin-right: 0;
-    font-size: 0.85rem;
-    padding: 0.75rem 1rem;
-    min-height: 44px; /* Altura mínima para área táctil */
-  }
-  
-  /* Nota de confirmación más compacta */
-  .mp-confirmation-note {
-    font-size: 0.8rem;
-    padding: 0.75rem;
-    margin: 1.5rem 0;
-  }
-  
-  /* Total más compacto pero manteniendo visibilidad */
-  .mp-total {
-    margin-top: 0.75rem;
-    padding: 0.5rem 0.75rem;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-  
-  .mp-total span:last-child {
-    font-size: 1.1rem;
-  }
-  
-  /* Campos de formulario */
-  .mp-select-input,
-  .mp-number-input {
-    height: 60px !important; /* Forzar la misma altura */
-    font-size: 16px; /* Este tamaño previene zoom en iOS */
-  }
-  
-  /* Detalles del producto más compactos */
-  .mp-product-details {
-    padding: 1rem;
-    margin: 1rem 0;
-  }
-  
-  .mp-product-details h3 {
-    font-size: 1.1rem;
-    padding-bottom: 0.6rem;
-    margin-bottom: 1rem;
-  }
-  
-  .mp-product-price {
-    padding: 1rem;
-    margin-top: 1rem;
-  }
-  
-  .mp-price-value {
-    font-size: 1.2rem;
-  }
-}
-
-/* Ajustes específicos para pantallas muy pequeñas */
-@media (max-width: 480px) {
-  /* Contenedor principal aún más compacto */
-  .mp-container {
-    padding: 0.75rem;
-  }
-  
-  /* Título principal más pequeño */
-  .mp-page-title {
-    font-size: 1.3rem;
-    margin-bottom: 1.5rem;
-  }
-  
-  /* Contenedor de confirmación */
-  .mp-confirmation-container {
-    padding: 1rem;
-    border-radius: 3px;
-  }
-  
-  /* Ajustar texto de botón grande */
-  .mp-confirmation-actions .mp-button.mp-primary {
-    font-size: 0.8rem;
-    white-space: normal;
-    height: auto;
-    padding: 0.75rem 0.5rem;
-    min-height: 44px;
-  }
-  
-  /* Reducir el espacio vertical entre items */
-  .mp-summary-item {
-    padding: 0.5rem 0;
-  }
-  
-  /* Ajustar tamaño del formulario */
-  .mp-form-group label {
-    font-size: 0.75rem;
-  }
-  
-  /* Order preview más compacto */
-  .mp-order-preview {
-    padding: 0.75rem;
-    margin-bottom: 1rem;
-  }
-  
-  .mp-order-preview h3 {
-    font-size: 0.9rem;
-    margin-bottom: 0.75rem;
-  }
-}
-
-/* Payment page */
+/* Payment container (step 4) */
 .mp-payment-container {
-  max-width: 650px;
+  max-width: 720px;
   margin: 0 auto;
 }
 
 .mp-order-preview {
+  background-color: #fff;
+  border-radius: 8px;
+  padding: 1.5rem;
   margin-bottom: 1.5rem;
-  background-color: #f8f8f8;
-  padding: 1rem;
-  border-radius: 4px;
-  border-left: 3px solid var(--mp-primary-button-color) !important;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
 }
 
-.mp-order-preview h3 {
-  font-size: 1rem;
-  margin-bottom: 1rem;
+.mp-order-confirmed {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
 }
 
-.mp-locked-value {
+.mp-check-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background-color: #4caf50;
+  color: white;
+  font-size: 0.8rem;
+  font-weight: bold;
+}
+
+.mp-order-confirmed h3 {
+  margin: 0;
+  font-size: 1.15rem;
   font-weight: 600;
+  color: #333;
+}
+
+.mp-order-product {
+  margin-bottom: 1.5rem;
+  position: relative;
+  padding-left: 1rem;
+}
+
+.mp-order-product-line {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background-color: var(--mp-primary-button-color, #F26F32);
+  border-radius: 2px;
+}
+
+.mp-order-product h4 {
+  margin: 0 0 0.75rem;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #333;
+}
+
+.mp-order-product-details {
+  padding: 0.75rem;
+  background-color: #f9f9f9;
+  border-radius: 4px;
+}
+
+.mp-order-detail {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.5rem 0;
+  font-size: 0.9rem;
+  color: #666;
+}
+
+.mp-order-detail-total {
+  display: flex;
+  justify-content: space-between;
+  padding-top: 0.75rem;
+  margin-top: 0.5rem;
+  border-top: 1px solid #eee;
+  font-weight: 600;
+  color: #333;
+}
+
+.mp-buyer-summary {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin: 1.5rem 0;
+  padding: 1rem;
+  background-color: #f3f3f3;
+  border-radius: 8px;
+}
+
+.mp-buyer-icon {
+  font-size: 1.5rem;
+}
+
+.mp-buyer-info-summary {
+  flex-grow: 1;
+}
+
+.mp-buyer-info-summary h4 {
+  margin: 0 0 0.5rem;
+  font-size: 1rem;
+  color: #444;
+}
+
+.mp-buyer-info-summary p {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #555;
+  line-height: 1.5;
+}
+
+.mp-payment-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 1rem;
+  padding: 1rem 1.5rem;
+  background-color: #f5f5f5;
+  border-radius: 4px;
+  border-left: 5px solid var(--mp-primary-button-color, #F26F32);
+  font-weight: 700;
+  font-size: 1.2rem;
+}
+
+.mp-payment-method {
+  background-color: #fff;
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+.mp-payment-title {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0 0 1.5rem;
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: #333;
+}
+
+.mp-payment-icon {
+  font-size: 1.25rem;
+}
+
+.mp-payment-options {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.mp-payment-option,
+.mp-payment-option-selected {
+  display: flex;
+  align-items: center;
+  padding: 1rem;
+  background-color: #f9f9f9;
+  border-radius: 8px;
+  gap: 1rem;
+  position: relative;
+}
+
+.mp-payment-option-selected {
+  border: 2px solid var(--mp-primary-button-color, #F26F32);
+  background-color: #fff;
+}
+
+.mp-payment-option input,
+.mp-payment-option-selected input {
+  margin-right: 0.5rem;
+}
+
+.mp-payment-option label,
+.mp-payment-option-selected label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 600;
+  font-size: 1rem;
+  color: #333;
+  flex-grow: 1;
+}
+
+.mp-card-icon {
+  font-size: 1.25rem;
+}
+
+.mp-installments {
+  background-color: #e8f5e9;
+  color: #2e7d32;
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.mp-payment-option small {
+  color: #666;
+  font-size: 0.85rem;
+  position: absolute;
+  right: 1rem;
 }
 
 .mp-payment-wrapper {
-  margin-bottom: 2rem;
+  margin: 2rem 0;
 }
 
 .mp-payment-actions {
   margin-top: 1.5rem;
+  text-align: center;
 }
 
-/* Estado de error/carga */
+.mp-button-cancel {
+  background-color: transparent;
+  color: #d32f2f;
+  border: 1px solid #d32f2f;
+  padding: 0.75rem 1.5rem;
+  border-radius: 4px;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.mp-button-cancel:hover {
+  background-color: #fbe9e7;
+}
+
+/* Loading and error states */
 .mp-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem;
   text-align: center;
-  padding: 2rem;
 }
 
 .mp-spinner {
   border: 4px solid #f3f3f3;
-  border-top: 4px solid #F26F32; /* Cambiado a naranja */
+  border-top: 4px solid var(--mp-primary-button-color, #F26F32);
   border-radius: 50%;
   width: 40px;
   height: 40px;
   animation: spin 1s linear infinite;
-  margin: 0 auto 1rem;
+  margin-bottom: 1rem;
 }
 
 @keyframes spin {
@@ -595,357 +920,72 @@
 }
 
 .mp-error-container {
-  padding: 1.5rem;
-  background-color: #fff3f3;
-  border-left: 4px solid #e74c3c;
-  margin: 1.5rem 0;
+  background-color: #fbe9e7;
+  color: #d32f2f;
+  padding: 2rem;
+  border-radius: 8px;
+  text-align: center;
+  max-width: 600px;
+  margin: 2rem auto;
 }
 
 .mp-empty-state {
   text-align: center;
-  padding: 3rem 0;
-}
-
-/* Estilos para selección múltiple de productos */
-.mp-product-list {
-  margin-bottom: 1.5rem;
-}
-
-.mp-product-item {
-  padding: 1rem;
-  border: 1px solid #eee;
-  border-radius: 4px;
-  margin-bottom: 1rem;
-  position: relative;
-}
-
-.mp-product-item:last-child {
-  margin-bottom: 0;
-}
-
-.mp-remove-product {
-  position: absolute;
-  top: 0.5rem;
-  right: 0.5rem;
-  background: #f0f0f0;
-  border: none;
-  border-radius: 50%;
-  width: 24px;
-  height: 24px;
-  font-size: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
+  padding: 3rem;
   color: #666;
+  max-width: 600px;
+  margin: 0 auto;
 }
 
-.mp-remove-product:hover {
-  background: #e5e5e5;
-  color: #222;
-}
-
-/* Nuevo estilo para el contenedor del botón Agregar Producto */
-.mp-add-product-container {
-  display: flex;
-  justify-content: flex-end;
-  width: 100%;
-  margin: 1rem 0;
-}
-
-/* Y modificar el estilo del botón */
-.mp-add-product-button {
-  display: inline-flex;
-  align-items: center;
-  background: transparent;
-  border: 1px dashed #ccc;
-  border-radius: 4px;
-  padding: 0.75rem 1.5rem;
-  width: auto;
-  cursor: pointer;
-  color: #666;
-  font-weight: 500;
-  transition: all 0.2s ease;
-}
-
-.mp-add-product-button span {
-  margin-left: 0.5rem;
-}
-
-/* Estilo para el botón X */
-.mp-product-remove-x {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  width: 24px;
-  height: 24px;
-  background-color: #f5f5f5;
-  border: 1px solid #e0e0e0;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  font-size: 14px;
-  color: #666;
-  transition: all 0.2s ease;
-  z-index: 5;
-}
-
-.mp-product-remove-x:hover {
-  background-color: #ff4d4f;
-  color: white;
-  border-color: #ff4d4f;
-}
-
-/* Estilos para el resumen con múltiples productos */
-.mp-product-summary {
-  margin-bottom: 1rem;
-  padding-bottom: 1rem;
-  border-bottom: 1px solid #f0f0f0;
-}
-
-.mp-product-summary:last-of-type {
-  border-bottom: 2px solid #eee;
-  margin-bottom: 1.5rem;
-}
-
-.mp-product-summary h4 {
-  font-size: 1rem;
-  font-weight: 600;
-  margin-bottom: 0.5rem;
-  color: #333;
-}
-
-.mp-product-subtotal {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0.5rem 0;
-  font-weight: 500;
-}
-
-.mp-grand-total {
-  font-weight: 700;
-  font-size: 1.2rem;
-  color: #222;
-  background-color: #f5f5f5;
-  padding: 1rem;
-  border-radius: 4px;
-  margin-top: 1.5rem;
-  border-left: 5px solid var(--mp-primary-button-color) !important;
-}
-
-.mp-grand-total span:last-child {
-  font-size: 1.4rem;
-  color: #111;
-}
-
-/* Ajustes responsivos para múltiples productos */
-@media (max-width: 767px) {
-  .mp-product-item {
-    padding: 0.75rem;
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .mp-container {
+    padding: 1.5rem 1rem;
   }
   
-  .mp-product-summary h4 {
-    font-size: 0.9rem;
+  .mp-confirmation-container,
+  .mp-buyer-form-container {
+    padding: 1.5rem;
   }
   
-  .mp-grand-total {
-    padding: 0.75rem;
-    font-size: 1.1rem;
+  .mp-action-buttons {
+    flex-direction: column;
   }
   
-  .mp-grand-total span:last-child {
-    font-size: 1.2rem;
+  .mp-action-buttons button {
+    width: 100%;
+  }
+  
+  .mp-form-actions {
+    flex-direction: column;
+  }
+  
+  .mp-form-actions button {
+    width: 100%;
   }
 }
 
-/* Estilos para tarjetas de producto */
-.mp-product-card {
-  background-color: white;
-  border-radius: 10px;
-  border: 1px solid #e0e0e0;
-  margin-bottom: 20px;
-  overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-  transition: all 0.3s ease;
-}
-
-.mp-product-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.12);
-}
-
-.mp-product-card-header {
-  background-color: #f7f7f7;
-  padding: 14px 18px;
-  border-bottom: 1px solid #e0e0e0;
-  border-left: 4px solid #F26F32;
-}
-
-.mp-product-card-header h4 {
-  margin: 0;
-  font-weight: 600;
-  color: #333;
-  font-size: 1.2rem;
-}
-
-.mp-product-card-body {
-  padding: 16px 18px;
-}
-
-.mp-product-card-row {
-  display: grid;
-  grid-template-columns: 130px 1fr;
-  margin-bottom: 10px;
-  align-items: baseline;
-}
-
-.mp-product-description {
-  margin: 12px 0 16px;
-  padding: 10px 12px;
-  background-color: #f9f9f9;
-  border-radius: 6px;
-  color: #555;
-  font-size: 0.95rem;
-  line-height: 1.5;
-}
-
-.mp-product-card-label {
-  font-weight: 500;
-  color: #555;
-  font-size: 0.9rem;
-}
-
-.mp-product-card-value {
-  color: #333;
-}
-
-.mp-product-card-footer {
-  background-color: #f9f9f9;
-  padding: 14px 18px;
-  border-top: 1px solid #e0e0e0;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.mp-product-card-total {
-  font-weight: 700;
-  font-size: 1.15rem;
-  color: #F26F32;
-}
-
-/* Estilos para el total general */
-.mp-grand-total {
-  background-color: #f7f7f7;
-  border-radius: 8px;
-  padding: 16px;
-  margin: 20px 0;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  border-left: 5px solid var(--mp-primary-button-color) !important;
-  font-size: 1.2rem;
-}
-
-.mp-grand-total-label {
-  font-weight: 600;
-  color: #333;
-}
-
-.mp-grand-total-value {
-  font-weight: 700;
-  color: #F26F32;
-  font-size: 1.3rem;
-}
-
-/* Estilos para la tarjeta de información del comprador */
-.mp-buyer-info-card {
-  background-color: #fafafa;
-  border-radius: 10px;
-  border: 1px solid #e0e0e0;
-  border-left: 4px solid #4285F4;
-  margin-top: 30px;
-  margin-bottom: 24px;
-  overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-}
-
-.mp-buyer-info-header {
-  background-color: #f3f7fd;
-  padding: 14px 18px;
-  border-bottom: 1px solid #e0e0e0;
-  display: flex;
-  align-items: center;
-}
-
-.mp-buyer-info-header h4 {
-  margin: 0;
-  font-weight: 600;
-  color: #333;
-  font-size: 1.1rem;
-}
-
-.mp-buyer-info-icon {
-  margin-right: 10px;
-  color: #4285F4;
-}
-
-.mp-buyer-info-body {
-  padding: 18px;
-}
-
-.mp-buyer-info-section {
-  margin-bottom: 20px;
-}
-
-.mp-buyer-info-section h5 {
-  margin-top: 0;
-  margin-bottom: 12px;
-  font-weight: 600;
-  color: #444;
-  border-bottom: 1px solid #eee;
-  padding-bottom: 8px;
-}
-
-.mp-buyer-info-row {
-  display: grid;
-  grid-template-columns: 130px 1fr;
-  margin-bottom: 8px;
-  align-items: baseline;
-}
-
-.mp-buyer-info-label {
-  font-weight: 500;
-  color: #555;
-  font-size: 0.9rem;
-}
-
-.mp-buyer-info-value {
-  color: #333;
-}
-
-/* Ajustes responsivos */
 @media (max-width: 480px) {
-  .mp-product-card-row,
-  .mp-buyer-info-row {
-    grid-template-columns: 1fr;
-    gap: 4px;
+  .mp-page-title {
+    font-size: 1.5rem;
+    margin-bottom: 2rem;
   }
   
-  .mp-buyer-info-label,
-  .mp-product-card-label {
-    font-size: 0.8rem;
-    color: #666;
-  }
-  
-  .mp-product-card-header h4 {
+  .mp-section-subtitle {
     font-size: 1.1rem;
   }
   
-  .mp-buyer-info-section h5 {
-    font-size: 1rem;
+  .mp-cart-item {
+    grid-template-columns: 30px 1fr auto;
+  }
+  
+  .mp-cart-item-remove {
+    grid-row: span 2;
+  }
+  
+  .mp-cart-item-price {
+    grid-column: 2 / -2;
+    margin-top: 0.5rem;
+    font-size: 0.9rem;
   }
 }

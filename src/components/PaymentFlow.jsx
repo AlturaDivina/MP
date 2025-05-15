@@ -30,7 +30,7 @@ export default function PaymentFlow({
   hideTitle = false,
   className = '',
   initialProductId = null,
-  customStyles = {}, // Nuevo prop para estilos personalizados
+  customStyles = {},
 }) {
   if (!apiBaseUrl) {
     logError("PaymentFlow Error: 'apiBaseUrl' prop is required.");
@@ -51,6 +51,11 @@ export default function PaymentFlow({
 
   const [products, setProducts] = useState([]);
   const [selectedProducts, setSelectedProducts] = useState([]);
+  const [currentProduct, setCurrentProduct] = useState({
+    productId: '',
+    product: null,
+    quantity: 1
+  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [currentStep, setCurrentStep] = useState(1);
@@ -83,22 +88,7 @@ export default function PaymentFlow({
         }
         const data = await response.json();
         setProducts(data);
-        if (data.length > 0) {
-          let initialProduct = data[0];
-          if (initialProductId) {
-            const foundProduct = data.find(p => p.id === initialProductId);
-            if (foundProduct) {
-              initialProduct = foundProduct;
-            }
-          }
-          setSelectedProducts([
-            {
-              productId: initialProduct.id,
-              product: initialProduct,
-              quantity: 1
-            }
-          ]);
-        }
+        // Keep the cart empty initially
       } catch (e) {
         setError(e.message);
         if (onError) onError(e);
@@ -115,47 +105,66 @@ export default function PaymentFlow({
     };
   }, []);
 
-  useEffect(() => {
-    if (currentStep === 1 && confirmedOrder === null && selectedProducts.length === 0 && products.length > 0) {
-      let initialProduct = products[0];
-      if (initialProductId) {
-        const foundProduct = products.find(p => p.id === initialProductId);
-        if (foundProduct) {
-          initialProduct = foundProduct;
-        }
-      }
-      setSelectedProducts([
-        {
-          productId: initialProduct.id,
-          product: initialProduct,
-          quantity: 1
-        }
-      ]);
-    }
-  }, [currentStep, confirmedOrder, selectedProducts.length, products, initialProductId]);
-
-  const getAvailableProducts = (currentIndex) => {
-    const selectedIds = selectedProducts
-      .filter((_, index) => index !== currentIndex)
-      .map(item => item.productId);
+  const getAvailableProducts = () => {
+    const selectedIds = selectedProducts.map(item => item.productId);
     return products.filter(product => !selectedIds.includes(product.id));
   };
 
   const handleAddProduct = () => {
-    if (products.length > 0) {
-      const availableProducts = getAvailableProducts(-1);
-      if (availableProducts.length === 0) {
-        alert('Ya has agregado todos los productos disponibles');
-        return;
-      }
-      setSelectedProducts([
-        ...selectedProducts,
-        {
-          productId: availableProducts[0].id,
-          product: availableProducts[0],
-          quantity: 1
-        }
-      ]);
+    if (!currentProduct.productId || !currentProduct.product) {
+      // No product selected
+      return;
+    }
+    
+    // Check if this product is already in the cart
+    const existingProductIndex = selectedProducts.findIndex(
+      p => p.productId === currentProduct.productId
+    );
+
+    if (existingProductIndex >= 0) {
+      // Update quantity if product already exists in cart
+      const updatedProducts = [...selectedProducts];
+      updatedProducts[existingProductIndex].quantity += currentProduct.quantity;
+      setSelectedProducts(updatedProducts);
+    } else {
+      // Add new product to cart
+      setSelectedProducts([...selectedProducts, { ...currentProduct }]);
+    }
+    
+    // Reset current product or select next available product
+    const availableProducts = getAvailableProducts();
+    if (availableProducts.length > 0) {
+      setCurrentProduct({
+        productId: availableProducts[0].id,
+        product: availableProducts[0],
+        quantity: 1
+      });
+    } else {
+      setCurrentProduct({
+        productId: '',
+        product: null,
+        quantity: 1
+      });
+    }
+  };
+
+  const handleProductChange = (e) => {
+    const productId = e.target.value;
+    const product = products.find(p => p.id === productId);
+    setCurrentProduct({
+      productId,
+      product,
+      quantity: currentProduct.quantity || 1
+    });
+  };
+
+  const handleQuantityChange = (e) => {
+    const value = parseInt(e.target.value);
+    if (!isNaN(value) && value > 0) {
+      setCurrentProduct({
+        ...currentProduct,
+        quantity: value
+      });
     }
   };
 
@@ -163,30 +172,6 @@ export default function PaymentFlow({
     const newProducts = [...selectedProducts];
     newProducts.splice(index, 1);
     setSelectedProducts(newProducts);
-  };
-
-  const handleProductChange = (e, index) => {
-    const productId = e.target.value;
-    const product = products.find(p => p.id === productId);
-    const updatedProducts = [...selectedProducts];
-    updatedProducts[index] = {
-      ...updatedProducts[index],
-      productId: productId,
-      product: product
-    };
-    setSelectedProducts(updatedProducts);
-  };
-
-  const handleQuantityChange = (e, index) => {
-    const value = parseInt(e.target.value);
-    if (!isNaN(value) && value > 0) {
-      const updatedProducts = [...selectedProducts];
-      updatedProducts[index] = {
-        ...updatedProducts[index],
-        quantity: value
-      };
-      setSelectedProducts(updatedProducts);
-    }
   };
 
   const calculateTotalPrice = () => {
@@ -209,14 +194,11 @@ export default function PaymentFlow({
       return;
     }
     
-    // Asegúrate de que el teléfono sea una cadena limpia pero NO lo conviertas a número
     const processedUserData = {...userData};
     if (processedUserData.phone) {
-      // Limpia pero mantén como string
       processedUserData.phone = String(processedUserData.phone).replace(/[^\d+]/g, '');
     }
     
-    // Actualiza los datos de usuario y avanza al siguiente paso
     setUserData(processedUserData);
     setCurrentStep(3);
   };
@@ -250,16 +232,7 @@ export default function PaymentFlow({
   const handleCancel = () => {
     if (window.confirm('¿Seguro que deseas cancelar este pedido?')) {
       setCurrentStep(1);
-      const initialProduct = initialProductId 
-        ? products.find(product => product.id === initialProductId) || products[0]
-        : products[0];
-      setSelectedProducts(products.length > 0 
-        ? [{ 
-            productId: initialProduct.id,
-            product: initialProduct,
-            quantity: 1
-          }] 
-        : []);
+      setSelectedProducts([]);
       setConfirmedOrder(null);
     }
   };
@@ -307,7 +280,7 @@ export default function PaymentFlow({
         onSuccess={handlePaymentSuccess}
         onError={handlePaymentError}
         hideTitle={true}
-        userData={confirmedOrder.userData} // Pass the user data
+        userData={confirmedOrder.userData}
         orderSummary={selectedProducts.map(product => ({
           productId: product.productId,
           name: product.product.name,
@@ -315,7 +288,7 @@ export default function PaymentFlow({
           price: product.product.price,
           total: product.product.price * product.quantity
         }))}
-        customStyles={customStyles} // Pass custom styles
+        customStyles={customStyles}
       />
     );
   };
@@ -362,89 +335,160 @@ export default function PaymentFlow({
   if (currentStep === 1) {
     return (
       <div className={cn(styles['mp-container'], className)} style={containerStyles}>
-        {!hideTitle && <h2 className={styles['mp-page-title']}>Selecciona tus Productos</h2>}
-        <div className={styles['mp-product-selection-container']}>
-          {selectedProducts.map((selectedProduct, index) => (
-            <div key={index} className={styles['mp-product-item']}>
-              {/* Botón X para eliminar el producto */}
-              <button 
-                className={styles['mp-product-remove-x']} 
-                onClick={() => handleRemoveProduct(index)}
-                aria-label="Eliminar producto"
-              >
-                ✕
-              </button>
-              
+        {!hideTitle && <h2 className={styles['mp-page-title']}>SELECCIONA TUS PRODUCTOS</h2>}
+        
+        <div className={styles['mp-product-page-layout']}>
+          <div className={styles['mp-product-selection']}>
+            <h3 className={styles['mp-section-subtitle']}>Añadir Producto</h3>
+            
+            <div className={styles['mp-product-form']}>
               <div className={styles['mp-form-group']}>
-                <label htmlFor={`mp-product-select-${index}`}>Producto:</label>
+                <label htmlFor="mp-product-select-0">PRODUCTO:</label>
                 <select 
-                  id={`mp-product-select-${index}`}
-                  value={selectedProduct.productId || ''}
-                  onChange={(e) => handleProductChange(e, index)}
+                  id="mp-product-select-0"
+                  value={currentProduct.productId || ''}
+                  onChange={handleProductChange}
                   className={styles['mp-select-input']}
                 >
-                  {getAvailableProducts(index).map(product => (
+                  <option value="">Selecciona un producto</option>
+                  {getAvailableProducts().map(product => (
                     <option key={product.id} value={product.id}>
                       {product.name} - ${formatPrice(product.price)}
                     </option>
                   ))}
-                  {selectedProduct.productId && !getAvailableProducts(index).find(p => p.id === selectedProduct.productId) && (
-                    <option key={selectedProduct.productId} value={selectedProduct.productId}>
-                      {selectedProduct.product.name} - ${formatPrice(selectedProduct.product.price)}
-                    </option>
-                  )}
                 </select>
               </div>
+              
               <div className={styles['mp-form-group']}>
-                <label htmlFor={`mp-quantity-input-${index}`}>Cantidad:</label>
-                <input
-                  id={`mp-quantity-input-${index}`}
-                  type="number"
-                  min="1"
-                  value={selectedProduct.quantity || 1}
-                  onChange={(e) => handleQuantityChange(e, index)}
-                  className={styles['mp-number-input']}
-                />
+                <label htmlFor="mp-quantity-input-0">CANTIDAD:</label>
+                <div className={styles['mp-quantity-control']}>
+                  <button 
+                    className={styles['mp-quantity-button']} 
+                    onClick={() => handleQuantityChange({ target: { 
+                      value: Math.max(1, currentProduct.quantity - 1)
+                    }})}
+                    type="button"
+                  >
+                    <span>－</span>
+                  </button>
+                  <input
+                    id="mp-quantity-input-0"
+                    type="number"
+                    min="1"
+                    value={currentProduct.quantity || 1}
+                    onChange={handleQuantityChange}
+                    className={styles['mp-number-input']}
+                  />
+                  <button 
+                    className={styles['mp-quantity-button']} 
+                    onClick={() => handleQuantityChange({ target: { 
+                      value: (currentProduct.quantity || 0) + 1
+                    }})}
+                    type="button"
+                  >
+                    <span>＋</span>
+                  </button>
+                </div>
               </div>
-              {selectedProduct.product && (
-                <div className={styles['mp-product-details']}>
-                  <h3>{selectedProduct.product.name}</h3>
-                  <p className={styles['mp-product-description']}>{selectedProduct.product.description}</p>
-                  <div className={styles['mp-product-price']}>
-                    <span>Precio Total:</span>
-                    <span className={styles['mp-price-value']}>
-                      ${formatPrice(selectedProduct.product.price * selectedProduct.quantity)}
-                    </span>
+              
+              {currentProduct.product && (
+                <div className={styles['mp-product-preview']}>
+                  <h4>{currentProduct.product.name}</h4>
+                  <p>{currentProduct.product.description}</p>
+                  <div className={styles['mp-product-price-tag']}>
+                    <span>${formatPrice(currentProduct.product.price)}</span>
+                    <span>Disponible</span>
                   </div>
                 </div>
               )}
               
-            </div>
-          ))}
-          {/* Contenedor flexible para Total y Agregar Producto */}
-          <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem'}}>
-            {/* Total a la izquierda */}
-            <div className={styles['mp-total-price']}>
-              <span>Total:</span>
-              <span>${formatPrice(calculateTotalPrice())}</span>
-            </div>
-            
-            {/* Botón Agregar Producto a la derecha (solo cuando hay menos de 3 productos) */}
-            {selectedProducts.length < 3 && (
-              <button
-                className={cn(styles['mp-button'], styles['mp-primary'])}
+              <button 
+                className={styles['mp-add-to-cart-button']} 
                 onClick={handleAddProduct}
+                type="button"
+                disabled={!currentProduct.productId}
               >
-                Agregar Producto
+                Agregar al Carrito
               </button>
-            )}
+            </div>
           </div>
-
-          {/* Botón Continuar al Pago en su propia línea */}
-          <div className={styles['mp-button-container']}>
-            <button className={cn(styles['mp-button'], styles['mp-primary'])} onClick={handleContinueToConfirmation}>
-              Continuar al Pago
-            </button>
+          
+          <div className={styles['mp-cart-column']}>
+            <div className={styles['mp-cart-summary']}>
+              <div className={styles['mp-cart-header']}>
+                <h3>Tu Carrito</h3>
+                <span className={styles['mp-cart-icon']}>🛒</span>
+              </div>
+              
+              {selectedProducts.length > 0 ? (
+                <div className={styles['mp-cart-items']}>
+                  {selectedProducts.map((item, index) => (
+                    <div key={index} className={styles['mp-cart-item']}>
+                      <div className={styles['mp-cart-item-image']}>
+                        <div className={styles['mp-item-placeholder']}></div>
+                      </div>
+                      <div className={styles['mp-cart-item-details']}>
+                        <h4>{item.product?.name}</h4>
+                        <div className={styles['mp-cart-item-quantity']}>
+                          <button 
+                            onClick={() => {
+                              const updatedProducts = [...selectedProducts];
+                              updatedProducts[index].quantity = Math.max(1, item.quantity - 1);
+                              setSelectedProducts(updatedProducts);
+                            }}
+                            type="button"
+                            className={styles['mp-cart-quantity-button']}
+                          >
+                            －
+                          </button>
+                          <span>{item.quantity}</span>
+                          <button 
+                            onClick={() => {
+                              const updatedProducts = [...selectedProducts];
+                              updatedProducts[index].quantity = item.quantity + 1;
+                              setSelectedProducts(updatedProducts);
+                            }}
+                            type="button"
+                            className={styles['mp-cart-quantity-button']}
+                          >
+                            ＋
+                          </button>
+                        </div>
+                      </div>
+                      <div className={styles['mp-cart-item-price']}>
+                        ${formatPrice(item.product?.price * item.quantity)}
+                      </div>
+                      <button 
+                        className={styles['mp-cart-item-remove']}
+                        onClick={() => handleRemoveProduct(index)}
+                        type="button"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className={styles['mp-cart-empty']}>
+                  <p>Tu carrito está vacío</p>
+                  <p>Agrega productos para continuar</p>
+                </div>
+              )}
+              
+              <div className={styles['mp-cart-total-section']}>
+                <div className={styles['mp-total-label']}>Total:</div>
+                <div className={styles['mp-total-amount']}>${formatPrice(calculateTotalPrice())}</div>
+              </div>
+              
+              <button 
+                className={styles['mp-continue-button']} 
+                onClick={handleContinueToConfirmation}
+                disabled={selectedProducts.length === 0}
+                type="button"
+              >
+                Continuar al Pago
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -454,180 +498,186 @@ export default function PaymentFlow({
   if (currentStep === 2) {
     return (
       <div className={cn(styles['mp-container'], className)} style={containerStyles}>
-        {!hideTitle && <h2 className={styles['mp-page-title']}>Datos del Comprador</h2>
-        }
-        <div className={styles['mp-form-container']}>
-          <div className={styles['mp-form-group']}>
-            <label htmlFor="mp-email">Email: *</label>
-            <input
-              id="mp-email"
-              type="email"
-              value={userData.email}
-              onChange={(e) => setUserData({...userData, email: e.target.value})}
-              className={styles['mp-text-input']}
-              placeholder="correo@ejemplo.com"
-              required
-            />
-          </div>
-          
-          <div className={styles['mp-form-row']}>
+        {!hideTitle && <h2 className={styles['mp-page-title']}>DATOS DEL COMPRADOR</h2>}
+        
+        <div className={styles['mp-buyer-form-container']}>
+          <div className={styles['mp-form-section']}>
+            <h3 className={styles['mp-section-title']}>Información Personal</h3>
+            <p className={styles['mp-section-subtitle']}>Ingresa tus datos para completar la compra</p>
+            
             <div className={styles['mp-form-group']}>
-              <label htmlFor="mp-first-name">Nombre: *</label>
+              <label htmlFor="mp-email">EMAIL: <span className={styles['mp-required']}>*</span></label>
               <input
-                id="mp-first-name"
-                type="text"
-                value={userData.first_name}
-                onChange={(e) => setUserData({...userData, first_name: e.target.value})}
+                id="mp-email"
+                type="email"
+                value={userData.email}
+                onChange={(e) => setUserData({...userData, email: e.target.value})}
                 className={styles['mp-text-input']}
+                placeholder="correo@ejemplo.com"
                 required
               />
             </div>
             
-            <div className={styles['mp-form-group']}>
-              <label htmlFor="mp-last-name">Apellido: *</label>
-              <input
-                id="mp-last-name"
-                type="text"
-                value={userData.last_name}
-                onChange={(e) => setUserData({...userData, last_name: e.target.value})}
-                className={styles['mp-text-input']}
-                required
-              />
-            </div>
-          </div>
-          
-          <div className={styles['mp-form-group']}>
-            <label htmlFor="mp-phone">Teléfono:</label>
-            {typeof window !== 'undefined' && (
-              <PhoneInput
-                country={'mx'} // Default para México
-                value={userData.phone || ''}
-                onChange={(value) => {
-                  if (value) {
-                    setUserData({
-                      ...userData, 
-                      phone: value.toString()
-                    });
-                  }
-                }}
-                inputClass={styles['mp-phone-input']}
-                containerClass={styles['mp-phone-container']}
-                enableSearch={true}
-                preferredCountries={['mx', 'us', 'co', 'ar', 'pe', 'cl']}
-                placeholder="Número de teléfono"
-              />
-            )}
-            <small>Incluya código de país y solo números</small>
-          </div>
-          
-          <div className={styles['mp-form-row']}>
-            <div className={styles['mp-form-group']}>
-              <label htmlFor="mp-id-type">Tipo de Documento:</label>
-              <select
-                id="mp-id-type"
-                value={userData.identification?.type || 'DNI'}
-                onChange={(e) => setUserData({
-                  ...userData, 
-                  identification: {...(userData.identification || {}), type: e.target.value}
-                })}
-                className={styles['mp-select-input']}
-              >
-                <option value="DNI">INE</option>
-                <option value="RFC">RFC</option>
-                <option value="CUIT">CUIT</option>
-                <option value="OTRO">Otro</option>
-              </select>
+            <div className={styles['mp-form-row']}>
+              <div className={styles['mp-form-group']}>
+                <label htmlFor="mp-first-name">NOMBRE: <span className={styles['mp-required']}>*</span></label>
+                <input
+                  id="mp-first-name"
+                  type="text"
+                  value={userData.first_name}
+                  onChange={(e) => setUserData({...userData, first_name: e.target.value})}
+                  className={styles['mp-text-input']}
+                  required
+                />
+              </div>
+              
+              <div className={styles['mp-form-group']}>
+                <label htmlFor="mp-last-name">APELLIDO: <span className={styles['mp-required']}>*</span></label>
+                <input
+                  id="mp-last-name"
+                  type="text"
+                  value={userData.last_name}
+                  onChange={(e) => setUserData({...userData, last_name: e.target.value})}
+                  className={styles['mp-text-input']}
+                  required
+                />
+              </div>
             </div>
             
             <div className={styles['mp-form-group']}>
-              <label htmlFor="mp-id-number">Número de Documento:</label>
-              <input
-                id="mp-id-number"
-                type="text"
-                value={userData.identification?.number || ''}
-                onChange={(e) => setUserData({
-                  ...userData, 
-                  identification: {...(userData.identification || {}), number: e.target.value}
-                })}
-                className={styles['mp-text-input']}
-              />
+              <label htmlFor="mp-phone">TELÉFONO:</label>
+              {typeof window !== 'undefined' && (
+                <PhoneInput
+                  country={'mx'}
+                  value={userData.phone || ''}
+                  onChange={(value) => {
+                    if (value) {
+                      setUserData({
+                        ...userData, 
+                        phone: value.toString()
+                      });
+                    }
+                  }}
+                  inputClass={styles['mp-phone-input']}
+                  containerClass={styles['mp-phone-container']}
+                  enableSearch={true}
+                  preferredCountries={['mx', 'us', 'co', 'ar', 'pe', 'cl']}
+                  placeholder="Número de teléfono"
+                />
+              )}
+              <small>Incluya código de país y solo números</small>
             </div>
-          </div>
-          
-          <h3 className={styles['mp-section-title']}>Dirección</h3>
-          
-          <div className={styles['mp-form-group']}>
-            <label htmlFor="mp-street">Calle:</label>
-            <input
-              id="mp-street"
-              type="text"
-              value={userData.address?.street_name || ''}
-              onChange={(e) => setUserData({
-                ...userData, 
-                address: {...(userData.address || {}), street_name: e.target.value}
-              })}
-              className={styles['mp-text-input']}
-            />
-          </div>
-          
-          <div className={styles['mp-form-row']}>
-            <div className={styles['mp-form-group']}>
-              <label htmlFor="mp-street-number">Número:</label>
-              <input
-                id="mp-street-number"
-                type="text"
-                value={userData.address?.street_number || ''}
-                onChange={(e) => {
-                  const streetNumber = e.target.value ? parseInt(e.target.value, 10) || '' : '';
-                  setUserData({
+            
+            <div className={styles['mp-form-row']}>
+              <div className={styles['mp-form-group']}>
+                <label htmlFor="mp-id-type">TIPO DE DOCUMENTO:</label>
+                <select
+                  id="mp-id-type"
+                  value={userData.identification?.type || 'DNI'}
+                  onChange={(e) => setUserData({
                     ...userData, 
-                    address: {...(userData.address || {}), street_number: streetNumber}
-                  });
-                }}
+                    identification: {...(userData.identification || {}), type: e.target.value}
+                  })}
+                  className={styles['mp-select-input']}
+                >
+                  <option value="INE">INE</option>
+                  <option value="RFC">RFC</option>
+                  <option value="CUIT">CUIT</option>
+                  <option value="OTRO">Otro</option>
+                </select>
+              </div>
+              
+              <div className={styles['mp-form-group']}>
+                <label htmlFor="mp-id-number">NÚMERO DE DOCUMENTO:</label>
+                <input
+                  id="mp-id-number"
+                  type="text"
+                  value={userData.identification?.number || ''}
+                  onChange={(e) => setUserData({
+                    ...userData, 
+                    identification: {...(userData.identification || {}), number: e.target.value}
+                  })}
+                  className={styles['mp-text-input']}
+                />
+              </div>
+            </div>
+          </div>
+          
+          <div className={styles['mp-form-section']}>
+            <h3 className={styles['mp-section-title']}>Dirección</h3>
+            
+            <div className={styles['mp-form-group']}>
+              <label htmlFor="mp-street">CALLE:</label>
+              <input
+                id="mp-street"
+                type="text"
+                value={userData.address?.street_name || ''}
+                onChange={(e) => setUserData({
+                  ...userData, 
+                  address: {...(userData.address || {}), street_name: e.target.value}
+                })}
                 className={styles['mp-text-input']}
-                placeholder="123"
               />
             </div>
             
+            <div className={styles['mp-form-row']}>
+              <div className={styles['mp-form-group']}>
+                <label htmlFor="mp-street-number">NÚMERO:</label>
+                <input
+                  id="mp-street-number"
+                  type="text"
+                  value={userData.address?.street_number || ''}
+                  onChange={(e) => setUserData({
+                    ...userData, 
+                    address: {...(userData.address || {}), street_number: e.target.value}
+                  })}
+                  className={styles['mp-text-input']}
+                  placeholder="123"
+                />
+              </div>
+              
+              <div className={styles['mp-form-group']}>
+                <label htmlFor="mp-zip">CÓDIGO POSTAL:</label>
+                <input
+                  id="mp-zip"
+                  type="text"
+                  value={userData.address?.zip_code || ''}
+                  onChange={(e) => setUserData({
+                    ...userData, 
+                    address: {...(userData.address || {}), zip_code: e.target.value}
+                  })}
+                  className={styles['mp-text-input']}
+                />
+              </div>
+            </div>
+            
             <div className={styles['mp-form-group']}>
-              <label htmlFor="mp-zip">Código Postal:</label>
+              <label htmlFor="mp-city">CIUDAD:</label>
               <input
-                id="mp-zip"
+                id="mp-city"
                 type="text"
-                value={userData.address?.zip_code || ''}
+                value={userData.address?.city || ''}
                 onChange={(e) => setUserData({
                   ...userData, 
-                  address: {...(userData.address || {}), zip_code: e.target.value}
+                  address: {...(userData.address || {}), city: e.target.value}
                 })}
                 className={styles['mp-text-input']}
               />
             </div>
           </div>
           
-          <div className={styles['mp-form-group']}>
-            <label htmlFor="mp-city">Ciudad:</label>
-            <input
-              id="mp-city"
-              type="text"
-              value={userData.address?.city || ''}
-              onChange={(e) => setUserData({
-                ...userData, 
-                address: {...(userData.address || {}), city: e.target.value}
-              })}
-              className={styles['mp-text-input']}
-            />
-          </div>
-          
-          <div className={styles['mp-button-container']}>
+          <div className={styles['mp-form-actions']}>
             <button 
-              className={cn(styles['mp-button'], styles['mp-secondary'])} 
+              className={styles['mp-button-secondary']} 
               onClick={() => setCurrentStep(1)}
+              type="button"
             >
               Volver
             </button>
             <button 
-              className={cn(styles['mp-button'], styles['mp-primary'])} 
+              className={styles['mp-button-primary']} 
               onClick={handleContinueToOrderConfirmation}
+              type="button"
             >
               Continuar
             </button>
@@ -640,120 +690,134 @@ export default function PaymentFlow({
   if (currentStep === 3) {
     return (
       <div className={cn(styles['mp-container'], className)} style={containerStyles}>
-        {!hideTitle && <h2 className={styles['mp-page-title']}>Confirmar Pedido</h2>}
+        {!hideTitle && <h2 className={styles['mp-page-title']}>CONFIRMAR PEDIDO</h2>}
+        
         <div className={styles['mp-confirmation-container']}>
-          <div className={styles['mp-summary']}>
+          <div className={styles['mp-order-summary']}>
+            <h3 className={styles['mp-summary-title']}>
+              <span className={styles['mp-summary-icon']}>✓</span> 
+              Resumen del Pedido (Confirmado)
+            </h3>
+            
             {selectedProducts.map((product, index) => (
-              <div key={index} className={styles['mp-product-card']}>
-                <div className={styles['mp-product-card-header']}>
+              <div key={index} className={styles['mp-summary-product']}>
+                <div className={styles['mp-summary-product-header']}>
+                  <div className={styles['mp-summary-product-line']}></div>
                   <h4>{product.product.name}</h4>
                 </div>
-                <div className={styles['mp-product-card-body']}>
-                  <p className={styles['mp-product-description']}>{product.product.description}</p>
-                  <div className={styles['mp-product-card-row']}>
-                    <span className={styles['mp-product-card-label']}>Precio Unitario:</span>
-                    <span className={styles['mp-product-card-value']}>${formatPrice(product.product.price)}</span>
+                
+                <p className={styles['mp-summary-product-desc']}>
+                  {product.product.description}
+                </p>
+                
+                <div className={styles['mp-summary-product-details']}>
+                  <div className={styles['mp-summary-detail']}>
+                    <span>Precio unitario:</span>
+                    <span>${formatPrice(product.product.price)}</span>
                   </div>
-                  <div className={styles['mp-product-card-row']}>
-                    <span className={styles['mp-product-card-label']}>Cantidad:</span>
-                    <span className={styles['mp-product-card-value']}>{product.quantity}</span>
+                  <div className={styles['mp-summary-detail']}>
+                    <span>Cantidad:</span>
+                    <span>{product.quantity}</span>
                   </div>
-                </div>
-                <div className={styles['mp-product-card-footer']}>
-                  <span>Total producto:</span>
-                  <span className={styles['mp-product-card-total']}>${formatPrice(product.product.price * product.quantity)}</span>
+                  <div className={styles['mp-summary-detail-total']}>
+                    <span>Total producto:</span>
+                    <span>${formatPrice(product.product.price * product.quantity)}</span>
+                  </div>
                 </div>
               </div>
             ))}
             
-           
-            
-            {/* Tarjeta de información del comprador */}
-            <div className={styles['mp-buyer-info-card']}>
-              <div className={styles['mp-buyer-info-header']}>
-                <span className={styles['mp-buyer-info-icon']}>👤</span>
-                <h4>Información del Comprador</h4>
+            <div className={styles['mp-buyer-info']}>
+              <h3 className={styles['mp-buyer-info-title']}>
+                <span className={styles['mp-user-icon']}>👤</span> 
+                Información del Comprador
+              </h3>
+              
+              <div className={styles['mp-buyer-section']}>
+                <h4>Datos Personales</h4>
+                
+                <div className={styles['mp-buyer-detail']}>
+                  <span>Nombre:</span>
+                  <span>{userData.first_name} {userData.last_name}</span>
+                </div>
+                <div className={styles['mp-buyer-detail']}>
+                  <span>Email:</span>
+                  <span>{userData.email}</span>
+                </div>
+                {userData.phone && (
+                  <div className={styles['mp-buyer-detail']}>
+                    <span>Teléfono:</span>
+                    <span>{userData.phone}</span>
+                  </div>
+                )}
               </div>
-              <div className={styles['mp-buyer-info-body']}>
-                <div className={styles['mp-buyer-info-section']}>
-                  <h5>Datos Personales</h5>
-                  <div className={styles['mp-buyer-info-row']}>
-                    <span className={styles['mp-buyer-info-label']}>Nombre:</span>
-                    <span className={styles['mp-buyer-info-value']}>{userData.first_name} {userData.last_name}</span>
+              
+              {(userData.identification?.type || userData.identification?.number) && (
+                <div className={styles['mp-buyer-section']}>
+                  <h4>Documento de Identidad</h4>
+                  <div className={styles['mp-buyer-detail']}>
+                    <span>Tipo:</span>
+                    <span>{userData.identification?.type || '-'}</span>
                   </div>
-                  <div className={styles['mp-buyer-info-row']}>
-                    <span className={styles['mp-buyer-info-label']}>Email:</span>
-                    <span className={styles['mp-buyer-info-value']}>{userData.email}</span>
+                  <div className={styles['mp-buyer-detail']}>
+                    <span>Número:</span>
+                    <span>{userData.identification?.number || '-'}</span>
                   </div>
-                  {userData.phone && (
-                    <div className={styles['mp-buyer-info-row']}>
-                      <span className={styles['mp-buyer-info-label']}>Teléfono:</span>
-                      <span className={styles['mp-buyer-info-value']}>{userData.phone}</span>
+                </div>
+              )}
+              
+              {(userData.address?.street_name || userData.address?.street_number ||
+                userData.address?.zip_code || userData.address?.city) && (
+                <div className={styles['mp-buyer-section']}>
+                  <h4>Dirección</h4>
+                  {userData.address?.street_name && (
+                    <div className={styles['mp-buyer-detail']}>
+                      <span>Calle:</span>
+                      <span>{userData.address.street_name}</span>
+                    </div>
+                  )}
+                  {userData.address?.street_number && (
+                    <div className={styles['mp-buyer-detail']}>
+                      <span>Número:</span>
+                      <span>{userData.address.street_number}</span>
+                    </div>
+                  )}
+                  {userData.address?.zip_code && (
+                    <div className={styles['mp-buyer-detail']}>
+                      <span>Código Postal:</span>
+                      <span>{userData.address.zip_code}</span>
+                    </div>
+                  )}
+                  {userData.address?.city && (
+                    <div className={styles['mp-buyer-detail']}>
+                      <span>Ciudad:</span>
+                      <span>{userData.address.city}</span>
                     </div>
                   )}
                 </div>
-                
-                {(userData.identification?.type || userData.identification?.number) && (
-                  <div className={styles['mp-buyer-info-section']}>
-                    <h5>Documento de Identidad</h5>
-                    <div className={styles['mp-buyer-info-row']}>
-                      <span className={styles['mp-buyer-info-label']}>Tipo:</span>
-                      <span className={styles['mp-buyer-info-value']}>{userData.identification?.type || '-'}</span>
-                    </div>
-                    <div className={styles['mp-buyer-info-row']}>
-                      <span className={styles['mp-buyer-info-label']}>Número:</span>
-                      <span className={styles['mp-buyer-info-value']}>{userData.identification?.number || '-'}</span>
-                    </div>
-                  </div>
-                )}
-                
-                {(userData.address?.street_name || userData.address?.street_number || userData.address?.zip_code || userData.address?.city) && (
-                  <div className={styles['mp-buyer-info-section']}>
-                    <h5>Dirección</h5>
-                    {userData.address?.street_name && (
-                      <div className={styles['mp-buyer-info-row']}>
-                        <span className={styles['mp-buyer-info-label']}>Calle:</span>
-                        <span className={styles['mp-buyer-info-value']}>{userData.address.street_name}</span>
-                      </div>
-                    )}
-                    {userData.address?.street_number && (
-                      <div className={styles['mp-buyer-info-row']}>
-                        <span className={styles['mp-buyer-info-label']}>Número:</span>
-                        <span className={styles['mp-buyer-info-value']}>{userData.address.street_number}</span>
-                      </div>
-                    )}
-                    {userData.address?.zip_code && (
-                      <div className={styles['mp-buyer-info-row']}>
-                        <span className={styles['mp-buyer-info-label']}>Código Postal:</span>
-                        <span className={styles['mp-buyer-info-value']}>{userData.address.zip_code}</span>
-                      </div>
-                    )}
-                    {userData.address?.city && (
-                      <div className={styles['mp-buyer-info-row']}>
-                        <span className={styles['mp-buyer-info-label']}>Ciudad:</span>
-                        <span className={styles['mp-buyer-info-value']}>{userData.address.city}</span>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
+              )}
             </div>
-             <div className={styles['mp-grand-total']}>
-              <span className={styles['mp-grand-total-label']}>Total a Pagar:</span>
-              <span className={styles['mp-grand-total-value']}>${formatPrice(calculateTotalPrice())}</span>
+            
+            <div className={styles['mp-total-bar']}>
+              <span>Total a Pagar:</span>
+              <span>${formatPrice(calculateTotalPrice())}</span>
             </div>
           </div>
           
           <div className={styles['mp-confirmation-actions']}>
-            <p className={styles['mp-confirmation-note']}>
-              Al confirmar esta orden, procederás al proceso de pago.
-              Los datos mostrados quedarán bloqueados.
-            </p>
-            <div className={styles['mp-button-container']}>
-              <button className={cn(styles['mp-button'], styles['mp-secondary'])} onClick={handleBack}>
+            <div className={styles['mp-action-buttons']}>
+              <button 
+                className={styles['mp-button-secondary']} 
+                onClick={handleBack}
+                type="button"
+              >
                 Volver
               </button>
-              <button className={cn(styles['mp-button'], styles['mp-primary'])} onClick={handleConfirmOrder}>
+              <button 
+                className={styles['mp-button-primary']} 
+                onClick={handleConfirmOrder}
+                type="button"
+              >
                 Confirmar y Proceder al Pago
               </button>
             </div>
@@ -766,115 +830,92 @@ export default function PaymentFlow({
   if (currentStep === 4 && confirmedOrder) {
     return (
       <div className={cn(styles['mp-container'], className)} style={containerStyles}>
-        {!hideTitle && <h2 className={styles['mp-page-title']}>Proceso de Pago</h2>}
+        {!hideTitle && <h2 className={styles['mp-page-title']}>PROCESO DE PAGO</h2>}
+        
         <div className={styles['mp-payment-container']}>
           <div className={styles['mp-order-preview']}>
-            <h3>Resumen del Pedido (Confirmado)</h3>
-            {confirmedOrder && confirmedOrder.products && confirmedOrder.products.map((order, index) => (
-              <div key={index} className={styles['mp-product-card']}>
-                <div className={styles['mp-product-card-header']}>
-                  <h4>{order.product && order.product.name || 'Producto desconocido'}</h4>
-                </div>
-                <div className={styles['mp-product-card-body']}>
-                  
-                  <div className={styles['mp-product-card-row']}>
-                    <span className={styles['mp-product-card-label']}>Precio unitario:</span>
-                    <span className={styles['mp-product-card-value']}>${order.product && formatPrice(order.product.price)}</span>
+            <div className={styles['mp-order-confirmed']}>
+              <span className={styles['mp-check-icon']}>✓</span> 
+              <h3>Resumen del Pedido (Confirmado)</h3>
+            </div>
+            
+            {confirmedOrder.products.map((product, index) => (
+              <div key={index} className={styles['mp-order-product']}>
+                <div className={styles['mp-order-product-line']}></div>
+                <h4>{product.product.name}</h4>
+                <div className={styles['mp-order-product-details']}>
+                  <div className={styles['mp-order-detail']}>
+                    <span>Precio unitario:</span>
+                    <span>${formatPrice(product.product.price)}</span>
                   </div>
-                  <div className={styles['mp-product-card-row']}>
-                    <span className={styles['mp-product-card-label']}>Cantidad:</span>
-                    <span className={styles['mp-product-card-value']}>{order.quantity}</span>
+                  <div className={styles['mp-order-detail']}>
+                    <span>Cantidad:</span>
+                    <span>{product.quantity}</span>
                   </div>
-                </div>
-                <div className={styles['mp-product-card-footer']}>
-                  <span>Total producto:</span>
-                  <span className={styles['mp-product-card-total']}>${order.product && formatPrice(order.product.price * order.quantity)}</span>
+                  <div className={styles['mp-order-detail-total']}>
+                    <span>Total producto:</span>
+                    <span>${formatPrice(product.product.price * product.quantity)}</span>
+                  </div>
                 </div>
               </div>
             ))}
             
-           
-            
-            {/* Tarjeta de información del comprador */}
-            <div className={styles['mp-buyer-info-card']}>
-              <div className={styles['mp-buyer-info-header']}>
-                <span className={styles['mp-buyer-info-icon']}>👤</span>
+            <div className={styles['mp-buyer-summary']}>
+              <div className={styles['mp-buyer-icon']}>👤</div>
+              <div className={styles['mp-buyer-info-summary']}>
                 <h4>Información del Comprador</h4>
-              </div>
-              <div className={styles['mp-buyer-info-body']}>
-                <div className={styles['mp-buyer-info-section']}>
-                  <h5>Datos Personales</h5>
-                  <div className={styles['mp-buyer-info-row']}>
-                    <span className={styles['mp-buyer-info-label']}>Nombre:</span>
-                    <span className={styles['mp-buyer-info-value']}>{confirmedOrder.userData.first_name} {confirmedOrder.userData.last_name}</span>
-                  </div>
-                  <div className={styles['mp-buyer-info-row']}>
-                    <span className={styles['mp-buyer-info-label']}>Email:</span>
-                    <span className={styles['mp-buyer-info-value']}>{confirmedOrder.userData.email}</span>
-                  </div>
-                  {confirmedOrder.userData.phone && (
-                    <div className={styles['mp-buyer-info-row']}>
-                      <span className={styles['mp-buyer-info-label']}>Teléfono:</span>
-                      <span className={styles['mp-buyer-info-value']}>{confirmedOrder.userData.phone}</span>
-                    </div>
+                <p>
+                  <strong>Nombre:</strong> {confirmedOrder.userData.first_name} {confirmedOrder.userData.last_name} |&nbsp;
+                  <strong>Email:</strong> {confirmedOrder.userData.email}
+                  {confirmedOrder.userData.address?.city && (
+                    <span> |&nbsp;<strong>Ciudad:</strong> {confirmedOrder.userData.address.city}</span>
                   )}
-                </div>
-                
-                {confirmedOrder.userData.identification && (confirmedOrder.userData.identification.type || confirmedOrder.userData.identification.number) && (
-                  <div className={styles['mp-buyer-info-section']}>
-                    <h5>Documento de Identidad</h5>
-                    <div className={styles['mp-buyer-info-row']}>
-                      <span className={styles['mp-buyer-info-label']}>Tipo:</span>
-                      <span className={styles['mp-buyer-info-value']}>{confirmedOrder.userData.identification.type || '-'}</span>
-                    </div>
-                    <div className={styles['mp-buyer-info-row']}>
-                      <span className={styles['mp-buyer-info-label']}>Número:</span>
-                      <span className={styles['mp-buyer-info-value']}>{confirmedOrder.userData.identification.number || '-'}</span>
-                    </div>
-                  </div>
-                )}
-                
-                {confirmedOrder.userData.address && (confirmedOrder.userData.address.street_name || confirmedOrder.userData.address.street_number || confirmedOrder.userData.address.zip_code || confirmedOrder.userData.address.city) && (
-                  <div className={styles['mp-buyer-info-section']}>
-                    <h5>Dirección</h5>
-                    {confirmedOrder.userData.address.street_name && (
-                      <div className={styles['mp-buyer-info-row']}>
-                        <span className={styles['mp-buyer-info-label']}>Calle:</span>
-                        <span className={styles['mp-buyer-info-value']}>{confirmedOrder.userData.address.street_name}</span>
-                      </div>
-                    )}
-                    {confirmedOrder.userData.address.street_number && (
-                      <div className={styles['mp-buyer-info-row']}>
-                        <span className={styles['mp-buyer-info-label']}>Número:</span>
-                        <span className={styles['mp-buyer-info-value']}>{confirmedOrder.userData.address.street_number}</span>
-                      </div>
-                    )}
-                    {confirmedOrder.userData.address.zip_code && (
-                      <div className={styles['mp-buyer-info-row']}>
-                        <span className={styles['mp-buyer-info-label']}>Código Postal:</span>
-                        <span className={styles['mp-buyer-info-value']}>{confirmedOrder.userData.address.zip_code}</span>
-                      </div>
-                    )}
-                    {confirmedOrder.userData.address.city && (
-                      <div className={styles['mp-buyer-info-row']}>
-                        <span className={styles['mp-buyer-info-label']}>Ciudad:</span>
-                        <span className={styles['mp-buyer-info-value']}>{confirmedOrder.userData.address.city}</span>
-                      </div>
-                    )}
-                  </div>
-                )}
+                </p>
               </div>
             </div>
-             <div className={styles['mp-grand-total']}>
-              <span className={styles['mp-grand-total-label']}>Total a pagar:</span>
-              <span className={styles['mp-grand-total-value']}>${formatPrice(confirmedOrder.totalPrice)}</span>
+            
+            <div className={styles['mp-payment-total']}>
+              <span>Total a pagar:</span>
+              <span>${formatPrice(confirmedOrder.totalPrice)}</span>
             </div>
           </div>
+          
+          <div className={styles['mp-payment-method']}>
+            <h3 className={styles['mp-payment-title']}>
+              <span className={styles['mp-payment-icon']}>💳</span> 
+              Método de Pago
+            </h3>
+            <div className={styles['mp-payment-options']}>
+              <div className={styles['mp-payment-option-selected']}>
+                <input type="radio" id="credit" name="payment" checked readOnly />
+                <label htmlFor="credit">
+                  <span className={styles['mp-card-icon']}>💳</span>
+                  Tarjeta de crédito
+                </label>
+                <span className={styles['mp-installments']}>Cuotas sin interés</span>
+              </div>
+              
+              <div className={styles['mp-payment-option']}>
+                <input type="radio" id="debit" name="payment" disabled />
+                <label htmlFor="debit">
+                  <span className={styles['mp-card-icon']}>💳</span>
+                  Tarjeta de débito
+                </label>
+                <small>Débito inmediato de tu cuenta</small>
+              </div>
+            </div>
+          </div>
+          
           <div className={styles['mp-payment-wrapper']}>
             {renderPaymentProvider()}
           </div>
+          
           <div className={styles['mp-payment-actions']}>
-            <button className={cn(styles['mp-button'], styles['mp-secondary'])} onClick={handleCancel}>
+            <button 
+              className={styles['mp-button-cancel']} 
+              onClick={handleCancel}
+              type="button"
+            >
               Cancelar Pedido
             </button>
           </div>
