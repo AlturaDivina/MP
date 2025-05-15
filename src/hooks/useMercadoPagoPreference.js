@@ -101,9 +101,7 @@ export function useMercadoPagoPreference({
       }
       
       // Ajustar la URL de API para desarrollo local si es necesario
-      const adjustedApiUrl = apiBaseUrl.includes('localhost')
-        ? apiBaseUrl.replace('https://', 'http://')
-        : apiBaseUrl;
+      const adjustedApiUrl = apiBaseUrl;
 
       const headers = {
         'Content-Type': 'application/json',

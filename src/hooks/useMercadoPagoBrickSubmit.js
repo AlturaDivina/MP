@@ -80,19 +80,22 @@ export function useMercadoPagoBrickSubmit({
 
       logInfo("Payload enviado a /api/process-payment:", backendPayload);
 
-      const processApiUrl = apiBaseUrl.includes('localhost')
-        ? apiBaseUrl.replace(/\/$/, '').replace('https://', 'http://')
-        : apiBaseUrl.replace(/\/$/, '');
+      const processApiUrl = apiBaseUrl.replace(/\/$/, '');
       
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
 
+      const headers = {
+        'Content-Type': 'application/json',
+        'X-CSRF-Token': csrfToken || '',
+        'X-Idempotency-Key': backendPayload.idempotencyKey || crypto.randomUUID(),
+        'User-Agent': 'MercadoPago-Integration/1.0.0',
+        'X-Product-Id': 'MP_PAYMENT_COMPONENT',
+      };
+
       const response = await fetch(`${processApiUrl}/api/process-payment`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRF-Token': csrfToken,
-        },
+        headers,
         body: JSON.stringify(backendPayload),
         signal: controller.signal,
         credentials: 'include'

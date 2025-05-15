@@ -4,9 +4,9 @@
   "description": "Componente de pago con MercadoPago",
   "main": "dist/index.js",
   "scripts": {
+    "dev": "node server.js",
     "build": "next build",
-    "dev": "next dev",
-    "start": "next start"
+    "start": "NODE_ENV=production node server.js"
   },
   "keywords": [
     "mercadopago",
@@ -29,6 +29,7 @@
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-phone-input-2": "^2.15.1",
+    "selfsigned": "^2.4.1",
     "tailwind-merge": "^3.2.0",
     "zod": "^3.24.4"
   },

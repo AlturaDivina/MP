@@ -30,7 +30,7 @@ export default function MercadoPagoProvider({
 }) {
   const hostUrl = process.env.NEXT_PUBLIC_HOST_URL || 'http://localhost:3000';
 
-  const { sdkReady, sdkError, mercadoPagoSdkInstance } = useMercadoPagoSdk(publicKey);
+  const { sdkReady, sdkError, mercadoPagoInstance } = useMercadoPagoSdk(publicKey);
   
   const { preferenceId, isLoadingPreference, preferenceError } = useMercadoPagoPreference({
     orderSummary,
@@ -269,55 +269,27 @@ export default function MercadoPagoProvider({
         ? orderSummary.reduce((sum, item) => sum + (item.price * item.quantity), 0)
         : 0);
 
+  // Asegúrate de que ambos parámetros estén disponibles antes de renderizar el componente Payment
   return (
-    <div className={cn(styles.paymentFormContainer, className)} style={containerStyles}>
+    <div className={`${className}`} style={containerStyles}>
       {statusMsg && <p className={styles.statusMessage}>{statusMsg}</p>}
       {isProcessing && displayError && <p className={styles.errorMessage}>{displayError}</p>}
       
-      {preferenceId && sdkReady ? (
+      {preferenceId && mercadoPagoInstance ? (
         <Payment
           key={`payment-${preferenceId}`}
           initialization={{
             amount: finalTotalAmount,
             preferenceId: preferenceId,
-            mercadoPago: mercadoPagoSdkInstance // Asegúrate de usar la instancia, no la clave
+            mercadoPago: mercadoPagoInstance // Usar la instancia del hook
           }}
-          customization={{
-            visual: { 
-              hideFormTitle: hideTitle, 
-              hidePaymentButton: false,
-              style: {
-                theme: 'default',
-                colors: {
-                  primary: customStyles?.buttonColor || '#F26F32',
-                  secondary: customStyles?.circleColor || '#F26F32', // Cambio de #009EE3 a #F26F32
-                  error: '#e74c3c',
-                  background: '#FFFFFF',
-                  text: '#333333'
-                },
-                borderRadius: '4px'
-              }
-            },
-            paymentMethods: { 
-              creditCard: 'all', 
-              debitCard: 'all' 
-            }
-          }}
-          onSubmit={processPayment}
+          customization={paymentCustomization}
           onReady={handleReady}
           onError={handleError}
+          onSubmit={processPayment}
         />
       ) : (
-        <div className={styles.loadingPreference}>
-          {isLoadingPreference || !sdkReady ? (
-            <>
-              <div className={styles.spinner}></div>
-              <p>Cargando formulario de pago...</p>
-            </>
-          ) : (
-            <p>Error al preparar el formulario. Verifique la configuración.</p>
-          )}
-        </div>
+        <p>Cargando formulario de pago...</p>
       )}
     </div>
   );

@@ -100,6 +100,10 @@ export default function PaymentFlow({
   }, [apiBaseUrl, productsEndpoint, onError, initialProductId]);
 
   useEffect(() => {
+    console.log('PaymentFlow initialized with API URL:', apiBaseUrl);
+  }, [apiBaseUrl]);
+
+  useEffect(() => {
     return () => {
       logInfo("Limpiando el flujo de pago");
     };

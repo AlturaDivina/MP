@@ -10,6 +10,7 @@ import { logInfo, logError } from '../utils/logger';
 export function useMercadoPagoSdk(publicKey) {
   const [sdkReady, setSdkReady] = useState(false);
   const [sdkError, setSdkError] = useState(null);
+  const [mercadoPagoInstance, setMercadoPagoInstance] = useState(null);
 
   useEffect(() => {
     // Función para inicializar el SDK
@@ -22,16 +23,15 @@ export function useMercadoPagoSdk(publicKey) {
       }
 
       try {
-        // Inicializar el SDK de MercadoPago
-        await initMercadoPago(publicKey);
-        logInfo('SDK de MercadoPago inicializado correctamente');
+        // En la versión 1.0.3, initMercadoPago devuelve una instancia que debemos guardar
+        const mp = await initMercadoPago(publicKey);
+        setMercadoPagoInstance(mp);
         setSdkReady(true);
         setSdkError(null);
+        logInfo('SDK de MercadoPago inicializado correctamente');
       } catch (error) {
-        const errorMsg = `Error al inicializar el SDK de MercadoPago: ${error.message}`;
-        logError(errorMsg, error);
-        setSdkError(errorMsg);
-        setSdkReady(false);
+        logError('Error al inicializar SDK de MercadoPago:', error);
+        setSdkError(`Error al inicializar MercadoPago: ${error.message}`);
       }
     };
 
@@ -44,5 +44,5 @@ export function useMercadoPagoSdk(publicKey) {
     };
   }, [publicKey]);
 
-  return { sdkReady, sdkError };
+  return { sdkReady, sdkError, mercadoPagoInstance };
 }

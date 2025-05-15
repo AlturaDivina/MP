@@ -141,7 +141,7 @@ export async function POST(req) {
       auto_return: "approved",
       statement_descriptor: "TuTienda Online",
       external_reference: `order-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`,
-      notification_url: process.env.MERCADOPAGO_WEBHOOK_URL || undefined,
+      notification_url: process.env.NEXT_PUBLIC_HOST_URL ? `${process.env.NEXT_PUBLIC_HOST_URL}/api/webhook` : undefined,
       ...(validatedPayer ? { payer: validatedPayer } : {})
     };
 

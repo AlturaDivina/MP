@@ -3,6 +3,7 @@
 import { Suspense, useState, useEffect } from 'react'
 import PaymentFlow from '../components/PaymentFlow'
 import MercadoPagoProvider from '../components/MercadoPagoProvider'
+import styles from '../styles/PaymentFlow.module.css';
 
 export default function Home() {
   const [params, setParams] = useState({});
@@ -71,12 +72,12 @@ export default function Home() {
   }, []);
 
   return (
-    <div>
+    <div className={styles.container}>
       <Suspense fallback={<div style={{ textAlign: 'center', padding: '20px' }}>Cargando configuración de pago...</div>}>
         <PaymentFlow
-          apiBaseUrl={process.env.NEXT_PUBLIC_HOST_URL || 'http://localhost:3000'}
+          apiBaseUrl={process.env.NEXT_PUBLIC_HOST_URL} // This should be https://localhost:3000
           productsEndpoint="/api/products"
-          mercadoPagoPublicKey={params.publicKey}
+          mercadoPagoPublicKey={process.env.NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY} // Acceder directamente a la variable de entorno
           PaymentProviderComponent={(props) => (
             <MercadoPagoProvider
               {...props}
