@@ -169,6 +169,34 @@ export function useMercadoPagoBrickSubmit({
         throw new Error(data.error);
       }
 
+      // Add to your handleSubmit function in useMercadoPagoBrickSubmit.js
+      // After receiving a successful response:
+
+      // Add this right before any redirects happen
+      try {
+        if (window.parent && window.parent !== window) {
+          window.parent.postMessage({
+            type: 'MP_REDIRECT',
+            url: redirectUrl,
+            status: paymentStatus,
+            orderId: data.id || '',
+            amount: finalAmount
+          }, '*');
+          
+          // Send confirmation message
+          setTimeout(() => {
+            window.parent.postMessage({
+              type: 'MP_REDIRECT_CONFIRM',
+              url: redirectUrl
+            }, '*');
+          }, 500);
+          
+          return; // Don't redirect the iframe directly
+        }
+      } catch (commError) {
+        console.error('Error communicating with parent frame:', commError);
+        // Fall back to regular redirect
+      }
     } catch (error) {
       logError("Error procesando el pago en hook:", error);
       const errMsg = `Error: ${error.name === 'AbortError' ? 'Tiempo de espera excedido' : error.message || 'Error desconocido al procesar pago'}`;

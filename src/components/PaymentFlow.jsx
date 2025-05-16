@@ -297,6 +297,10 @@ export default function PaymentFlow({
     );
   };
 
+  // Get from URL or env once
+  const publicKey = new URLSearchParams(window.location.search).get('publicKey') || process.env.NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY;
+  console.log("MercadoPago Public Key:", publicKey); // Debug log
+
   if (loading) {
     return (
       <div className={cn(styles['mp-container'], className)} style={containerStyles}>
@@ -884,31 +888,7 @@ export default function PaymentFlow({
             </div>
           </div>
           
-          <div className={styles['mp-payment-method']}>
-            <h3 className={styles['mp-payment-title']}>
-              <span className={styles['mp-payment-icon']}>💳</span> 
-              Método de Pago
-            </h3>
-            <div className={styles['mp-payment-options']}>
-              <div className={styles['mp-payment-option-selected']}>
-                <input type="radio" id="credit" name="payment" checked readOnly />
-                <label htmlFor="credit">
-                  <span className={styles['mp-card-icon']}>💳</span>
-                  Tarjeta de crédito
-                </label>
-                <span className={styles['mp-installments']}>Cuotas sin interés</span>
-              </div>
-              
-              <div className={styles['mp-payment-option']}>
-                <input type="radio" id="debit" name="payment" disabled />
-                <label htmlFor="debit">
-                  <span className={styles['mp-card-icon']}>💳</span>
-                  Tarjeta de débito
-                </label>
-                <small>Débito inmediato de tu cuenta</small>
-              </div>
-            </div>
-          </div>
+          
           
           <div className={styles['mp-payment-wrapper']}>
             {renderPaymentProvider()}

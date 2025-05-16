@@ -1,4 +1,4 @@
-'use client'
+'use client';
 
 import { Suspense, useState, useEffect } from 'react'
 import PaymentFlow from '../components/PaymentFlow'
@@ -6,7 +6,22 @@ import MercadoPagoProvider from '../components/MercadoPagoProvider'
 import styles from '../styles/PaymentFlow.module.css';
 
 export default function Home() {
-  const [params, setParams] = useState({});
+  // Get public key first before any rendering
+  const [ready, setReady] = useState(false);
+  const [params, setParams] = useState({
+    // Initialize with defaults including the public key from env
+    publicKey: process.env.NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY,
+    buttonColor: '#F26F32',
+    circleColor: '#009EE3',
+    primaryButtonColor: '#F26F32',
+    secondaryButtonColor: '#E5E5E5',
+    hideTitle: false,
+    quantity: 1,
+    initialProductId: '',
+    finalSuccessUrl: "https://alturadivina.com/confirmacion-de-compra",
+    finalPendingUrl: "https://alturadivina.com/proceso-de-compra",  
+    finalFailureUrl: "https://alturadivina.com/error-de-compra"
+  });
 
   useEffect(() => {
     // Obtener parámetros de URL
@@ -26,8 +41,12 @@ export default function Home() {
     const hideTitle = urlParams.get('hideTitle') === 'true';
     const quantity = parseInt(urlParams.get('quantity') || '1', 10);
     const initialProductId = urlParams.get('initialProductId') || urlParams.get('productId') || '';
+    
+    // Use URL param key if available, otherwise keep the env var
     const publicKey = urlParams.get('publicKey') || process.env.NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY;
+    console.log("MercadoPago Public Key:", publicKey); // Debug log
 
+    // Use the default URLs if not provided in URL or not starting with http
     const defaultSuccessUrl = "https://alturadivina.com/confirmacion-de-compra";
     const defaultPendingUrl = "https://alturadivina.com/proceso-de-compra";
     const defaultFailureUrl = "https://alturadivina.com/error-de-compra";
@@ -68,8 +87,15 @@ export default function Home() {
       primaryButtonColor, 
       secondaryButtonColor
     });
-
+    
+    // Mark as ready only after all params are set
+    setReady(true);
   }, []);
+
+  // Don't render main component until ready
+  if (!ready) {
+    return <div style={{ textAlign: 'center', padding: '20px' }}>Cargando configuración de pago...</div>;
+  }
 
   return (
     <div className={styles.container}>
@@ -77,7 +103,7 @@ export default function Home() {
         <PaymentFlow
           apiBaseUrl={process.env.NEXT_PUBLIC_HOST_URL} // This should be https://localhost:3000
           productsEndpoint="/api/products"
-          mercadoPagoPublicKey={process.env.NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY} // Acceder directamente a la variable de entorno
+          mercadoPagoPublicKey={params.publicKey} // Use from params state, which is now guaranteed to be set
           PaymentProviderComponent={(props) => (
             <MercadoPagoProvider
               {...props}

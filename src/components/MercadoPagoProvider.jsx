@@ -273,23 +273,62 @@ export default function MercadoPagoProvider({
   return (
     <div className={`${className}`} style={containerStyles}>
       {statusMsg && <p className={styles.statusMessage}>{statusMsg}</p>}
-      {isProcessing && displayError && <p className={styles.errorMessage}>{displayError}</p>}
       
+      {/* Debugging info - removed from UI but kept in console logs */}
+      {console.log('SDK Ready:', sdkReady, 
+                   '| Preference ID:', preferenceId ? preferenceId.substring(0, 8) + '...' : 'None', 
+                   '| MP Instance:', mercadoPagoInstance ? 'Available' : 'None')}
+      {sdkError && console.error('SDK Error:', sdkError)}
+      {preferenceError && console.error('Preference Error:', preferenceError)}
+      
+      {/* Payment component */}
       {preferenceId && mercadoPagoInstance ? (
-        <Payment
-          key={`payment-${preferenceId}`}
-          initialization={{
-            amount: finalTotalAmount,
-            preferenceId: preferenceId,
-            mercadoPago: mercadoPagoInstance // Usar la instancia del hook
-          }}
-          customization={paymentCustomization}
-          onReady={handleReady}
-          onError={handleError}
-          onSubmit={processPayment}
-        />
+        <div style={{ 
+          width: '100%', 
+          minHeight: '350px', 
+          border: '1px solid #f0f0f0',
+          background: '#ffffff',
+          position: 'relative',
+          zIndex: 10,
+          borderRadius: '4px',
+          padding: '10px 0',
+          margin: '15px 0'
+        }}>
+          <Payment
+            key={`payment-${preferenceId}`}
+            initialization={{
+              amount: finalTotalAmount,
+              preferenceId: preferenceId,
+              mercadoPago: mercadoPagoInstance
+            }}
+            customization={paymentCustomization}
+            onReady={() => {
+              console.log("Payment component is ready and mounted");
+              handleReady();
+              
+              // Force re-render of payment form elements
+              setTimeout(() => {
+                const formElements = document.querySelectorAll('.mp-checkout-container');
+                console.log("Found payment elements:", formElements.length);
+                formElements.forEach(el => {
+                  el.style.display = 'block';
+                  el.style.opacity = '1';
+                });
+              }, 300);
+            }}
+            onError={(error) => {
+              console.error("Payment component error:", error);
+              handleError(error);
+            }}
+            onSubmit={processPayment}
+          />
+        </div>
       ) : (
-        <p>Cargando formulario de pago...</p>
+        <div>
+          <p>Cargando formulario de pago...</p>
+          {!sdkReady && <p>Esperando SDK de Mercado Pago... (Esto puede tomar unos momentos)</p>}
+          {!preferenceId && sdkReady && <p>Esperando creación de preferencia...</p>}
+        </div>
       )}
     </div>
   );

@@ -61,3 +61,12 @@ app.prepare().then(() => {
     console.log('> Ready on https://localhost:3000');
   });
 });
+
+const idempotencyKey = crypto.randomUUID();
+
+fetch('https://api.mercadopago.com/v1/payments', {
+  headers: {
+    'X-Idempotency-Key': idempotencyKey,
+    // other headers
+  }
+});

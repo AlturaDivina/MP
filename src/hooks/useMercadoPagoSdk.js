@@ -8,41 +8,46 @@ import { logInfo, logError } from '../utils/logger';
  * @returns {Object} - Estado del SDK: {sdkReady, sdkError}
  */
 export function useMercadoPagoSdk(publicKey) {
+  console.log("useMercadoPagoSdk initialized with key:", publicKey);
+  const finalPublicKey = publicKey || process.env.NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY;
+
   const [sdkReady, setSdkReady] = useState(false);
   const [sdkError, setSdkError] = useState(null);
   const [mercadoPagoInstance, setMercadoPagoInstance] = useState(null);
+  const [hasInitialized, setHasInitialized] = useState(false); // Add this line
 
   useEffect(() => {
-    // Función para inicializar el SDK
-    const initializeSdk = async () => {
-      if (!publicKey) {
-        const error = 'Error de configuración: Falta la clave pública de MercadoPago.';
-        logError(error);
-        setSdkError(error);
-        return;
-      }
+    if (!finalPublicKey) {
+      setSdkError('Error de configuración: Falta la clave pública de MercadoPago.');
+      return;
+    }
 
-      try {
-        // En la versión 1.0.3, initMercadoPago devuelve una instancia que debemos guardar
-        const mp = await initMercadoPago(publicKey);
-        setMercadoPagoInstance(mp);
-        setSdkReady(true);
-        setSdkError(null);
-        logInfo('SDK de MercadoPago inicializado correctamente');
-      } catch (error) {
-        logError('Error al inicializar SDK de MercadoPago:', error);
-        setSdkError(`Error al inicializar MercadoPago: ${error.message}`);
-      }
-    };
+    if (hasInitialized) return; // Add this line to prevent multiple initializations
 
-    initializeSdk();
+    try {
+      setHasInitialized(true); // Mark as initialized
+      initMercadoPago(finalPublicKey);
 
-    // Limpieza (opcional si el SDK requiere alguna limpieza)
-    return () => {
-      logInfo('Limpiando SDK de MercadoPago');
-      // Aquí podrías añadir código de limpieza si es necesario
-    };
-  }, [publicKey]);
+      // Add a small delay to ensure SDK is loaded
+      setTimeout(() => {
+        if (window.MercadoPago) {
+          try {
+            const mp = new window.MercadoPago(finalPublicKey);
+            setMercadoPagoInstance(mp);
+            setSdkReady(true);
+          } catch (err) {
+            console.error("Failed to create MercadoPago instance:", err);
+            setSdkError(`Error al crear instancia: ${err.message}`);
+          }
+        } else {
+          setSdkError('No se pudo cargar el SDK de MercadoPago.');
+        }
+      }, 500);
+    } catch (err) {
+      console.error("Failed to initialize MercadoPago:", err);
+      setSdkError(`Error al inicializar MercadoPago: ${err.message}`);
+    }
+  }, [finalPublicKey, hasInitialized]);
 
   return { sdkReady, sdkError, mercadoPagoInstance };
 }

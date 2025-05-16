@@ -342,3 +342,16 @@ select[id^="mp-"] {
   --base-color-first-variant: var(--mp-button-color) !important;
   --base-color-second-variant: var(--mp-button-color) !important;
 }
+
+/* Force visibility of payment elements */
+.mp-checkout-container,
+.mp-checkout-container * {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+.mp-checkout-container iframe {
+  min-height: 400px !important;
+  width: 100% !important;
+}
