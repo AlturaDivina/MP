@@ -87,5 +87,58 @@ export function validateAlphanumeric(input, allowSpecial = false) {
 }
 
 /**
+ * Función específica para nombres (más restrictiva)
+ */
+export function sanitizeName(input, maxLength = 50) {
+  if (typeof input !== 'string') return '';
+  
+  // Solo permitir letras, espacios, acentos y algunos caracteres especiales para nombres
+  const namePattern = /^[a-zA-ZÀ-ÿ\u0100-\u017F\s'-\.]+$/;
+  
+  // Aplicar sanitización base primero
+  let sanitized = sanitizeInput(input, maxLength);
+  
+  // Remover caracteres no permitidos en nombres
+  sanitized = sanitized.replace(/[^a-zA-ZÀ-ÿ\u0100-\u017F\s'-\.]/g, '');
+  
+  return sanitized.trim();
+}
+
+/**
+ * Función específica para direcciones
+ */
+export function sanitizeAddress(input, maxLength = 200) {
+  if (typeof input !== 'string') return '';
+  
+  // Permitir caracteres alfanuméricos, espacios y algunos especiales para direcciones
+  let sanitized = sanitizeInput(input, maxLength);
+  
+  // Remover caracteres peligrosos pero mantener los útiles para direcciones
+  sanitized = sanitized.replace(/[^a-zA-Z0-9À-ÿ\u0100-\u017F\s'#\-\.,°º\/]/g, '');
+  
+  return sanitized.trim();
+}
+
+/**
+ * Función específica para teléfonos
+ */
+export function sanitizePhone(input) {
+  if (typeof input !== 'string') return '';
+  
+  // Solo permitir números, espacios, guiones, paréntesis y signo +
+  return input.replace(/[^0-9\s\-\(\)\+]/g, '').trim();
+}
+
+/**
+ * Función específica para emails
+ */
+export function sanitizeEmail(input) {
+  if (typeof input !== 'string') return '';
+  
+  // Patrón básico para email (más permisivo)
+  return input.replace(/[<>'"]/g, '').trim().toLowerCase();
+}
+
+/**
  * Exportar otras funciones de seguridad según sea necesario
  */

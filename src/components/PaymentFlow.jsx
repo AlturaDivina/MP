@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import styles from '../styles/PaymentFlow.module.css'; 
 import MercadoPagoProvider from './MercadoPagoProvider';
 import { cn } from '../lib/utils';
@@ -13,6 +13,7 @@ import CartIcon from './CartIcon';
 import CartSidebar from './CartSidebar';
 import { useCustomerSave } from '../hooks/useCustomerSave';
 import ErrorMessage from './ErrorMessage';
+import { sanitizeName, sanitizeAddress, sanitizePhone, sanitizeEmail, sanitizeInput } from '../utils/security';
 
 // NUEVO: Constante para el fee de envío
 const SHIPPING_FEE = 200;
@@ -497,6 +498,44 @@ export default function PaymentFlow({
     );
   };
 
+  // Función helper para manejar cambios sanitizados
+  const handleSecureInputChange = useCallback((field, value, sanitizeType = 'text', maxLength = 100) => {
+    let sanitized;
+    
+    switch (sanitizeType) {
+      case 'name':
+        sanitized = sanitizeName(value, maxLength);
+        break;
+      case 'address':
+        sanitized = sanitizeAddress(value, maxLength);
+        break;
+      case 'phone':
+        sanitized = sanitizePhone(value);
+        break;
+      case 'email':
+        sanitized = sanitizeEmail(value);
+        break;
+      default:
+        sanitized = sanitizeInput(value, maxLength);
+    }
+    
+    if (field.includes('.')) {
+      const [parent, child] = field.split('.');
+      setUserData(prev => ({
+        ...prev,
+        [parent]: {
+          ...(prev[parent] || {}),
+          [child]: sanitized
+        }
+      }));
+    } else {
+      setUserData(prev => ({
+        ...prev,
+        [field]: sanitized
+      }));
+    }
+  }, []);
+
   if (loading) {
     return (
       <div className={cn(styles['mp-container'], className)} style={containerStyles}>
@@ -745,7 +784,7 @@ export default function PaymentFlow({
                 id="mp-email"
                 type="email"
                 value={userData.email}
-                onChange={(e) => setUserData({...userData, email: e.target.value})}
+                onChange={(e) => handleSecureInputChange('email', e.target.value, 'email', 100)}
                 className={styles['mp-text-input']}
                 required
               />
@@ -758,7 +797,7 @@ export default function PaymentFlow({
                   id="mp-first-name"
                   type="text"
                   value={userData.first_name}
-                  onChange={(e) => setUserData({...userData, first_name: e.target.value})}
+                  onChange={(e) => handleSecureInputChange('first_name', e.target.value, 'name', 50)}
                   className={styles['mp-text-input']}
                   required
                 />
@@ -770,7 +809,7 @@ export default function PaymentFlow({
                   id="mp-last-name"
                   type="text"
                   value={userData.last_name}
-                  onChange={(e) => setUserData({...userData, last_name: e.target.value})}
+                  onChange={(e) => handleSecureInputChange('last_name', e.target.value, 'name', 50)}
                   className={styles['mp-text-input']}
                   required
                 />
@@ -862,10 +901,7 @@ export default function PaymentFlow({
                 id="mp-street"
                 type="text"
                 value={userData.address?.street_name || ''}
-                onChange={(e) => setUserData({
-                  ...userData, 
-                  address: {...(userData.address || {}), street_name: e.target.value}
-                })}
+                onChange={(e) => handleSecureInputChange('address.street_name', e.target.value, 'address', 200)}
                 className={styles['mp-text-input']}
               />
             </div>
@@ -909,10 +945,7 @@ export default function PaymentFlow({
                 id="mp-city"
                 type="text"
                 value={userData.address?.city || ''}
-                onChange={(e) => setUserData({
-                  ...userData, 
-                  address: {...(userData.address || {}), city: e.target.value}
-                })}
+                onChange={(e) => handleSecureInputChange('address.city', e.target.value, 'address', 100)}
                 className={styles['mp-text-input']}
               />
             </div>
@@ -924,10 +957,7 @@ export default function PaymentFlow({
                 id="mp-state"
                 type="text"
                 value={userData.address?.state || ''}
-                onChange={(e) => setUserData({
-                  ...userData, 
-                  address: {...(userData.address || {}), state: e.target.value}
-                })}
+                onChange={(e) => handleSecureInputChange('address.state', e.target.value, 'address', 100)}
                 className={styles['mp-text-input']}
               />
             </div>
@@ -972,10 +1002,7 @@ export default function PaymentFlow({
                   id="mp-custom-country"
                   type="text"
                   value={userData.address?.customCountry || ''}
-                  onChange={(e) => setUserData({
-                    ...userData, 
-                    address: {...(userData.address || {}), customCountry: e.target.value}
-                  })}
+                  onChange={(e) => handleSecureInputChange('address.customCountry', e.target.value, 'address', 100)}
                   className={styles['mp-text-input']}
                   placeholder="Escriba el nombre del país"
                 />
