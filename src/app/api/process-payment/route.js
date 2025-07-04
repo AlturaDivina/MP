@@ -12,6 +12,7 @@ import { validatePaymentRequestBody, extractPaymentInstrumentData } from '../../
 import { paymentCircuitBreaker } from '../../../lib/circuit-breaker-pro.js';
 import { performanceMonitor } from '../../../lib/performance-monitor-pro.js';
 import { paymentQueue } from '../../../lib/queue-manager-pro.js';
+import { SupabaseSecurity } from '../../../lib/supabase-security';
 
 // Inicializar el cliente de Supabase
 const supabaseUrl = process.env.SUPABASE_URL;
@@ -589,11 +590,7 @@ export async function POST(req) {
           // ✅ INSERTAR: Crear payment request en Supabase
           logInfo(`🔄 [${idempotencyKey}] Insertando payment request en Supabase...`);
           
-          const { data: insertedPaymentRequest, error: insertError } = await supabase
-            .from('payment_requests')
-            .insert([paymentRequestData])
-            .select()
-            .single();
+          const { data: insertedPaymentRequest, error: insertError } = await SupabaseSecurity.insertPaymentRequest(paymentRequestData);
 
           if (insertError) {
             logError(`❌ [${idempotencyKey}] Error detallado insertando payment request:`, {
