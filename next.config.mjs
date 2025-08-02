@@ -2,144 +2,59 @@
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  experimental: {
+    optimizePackageImports: ['@mercadopago/sdk-react'],
+  },
+  
+  // Mejorar hidratación y SSR
   reactStrictMode: true,
-
+  
+  // Headers para mejorar compatibilidad móvil
   async headers() {
     return [
       {
         source: '/(.*)',
         headers: [
           {
-            key: 'Content-Security-Policy',
-            value: `
-              default-src 'self' 
-                https://*.mercadopago.com 
-                https://*.mercadopago.com.ar 
-                https://*.mercadopago.com.br 
-                https://*.mercadopago.com.mx 
-                https://*.mlstatic.com 
-                https://*.framer.com 
-                https://framer.com 
-                https://*.framer.app 
-                https://alturadivina.com 
-                https://*.mercadolibre.com 
-                https://*.mercadolivre.com 
-                https://fonts.googleapis.com 
-                data: 
-                https://*.framerusercontent.com 
-                https://api.mercadopago.com;
-                
-              script-src 'self' 
-                'unsafe-inline'
-                'unsafe-eval'
-                https://*.mercadopago.com 
-                https://*.mercadopago.com.ar 
-                https://*.mercadopago.com.br 
-                https://*.mercadopago.com.mx 
-                https://*.mlstatic.com 
-                https://*.framer.com 
-                https://framer.com 
-                https://*.framer.app 
-                https://*.mercadolibre.com 
-                https://*.mercadolivre.com 
-                https://*.framerusercontent.com 
-                https://api.mercadopago.com;
-                
-              style-src 'self' 
-                'unsafe-inline'
-                https://*.mercadopago.com 
-                https://*.mercadopago.com.ar 
-                https://*.mercadopago.com.br 
-                https://*.mercadopago.com.mx 
-                https://*.mlstatic.com 
-                https://*.mercadolibre.com 
-                https://*.mercadolivre.com 
-                https://fonts.googleapis.com;
-                
-              img-src 'self' data: blob:
-                https://*.mercadopago.com 
-                https://*.mercadopago.com.ar 
-                https://*.mercadopago.com.br 
-                https://*.mercadopago.com.mx 
-                https://*.mlstatic.com 
-                https://*.mercadolibre.com 
-                https://*.mercadolivre.com 
-                https://*.framerusercontent.com;
-                
-              font-src 'self' 
-                https://fonts.googleapis.com 
-                https://fonts.gstatic.com;
-                
-              connect-src 'self' 
-                https://*.mercadopago.com 
-                https://*.mercadopago.com.ar 
-                https://*.mercadopago.com.br 
-                https://*.mercadopago.com.mx 
-                https://*.mlstatic.com 
-                https://*.framer.com 
-                https://framer.com 
-                https://*.framer.app 
-                https://alturadivina.com 
-                https://*.mercadolibre.com 
-                https://*.mercadolivre.com 
-                https://api.mercadopago.com;
-                
-              frame-src 'self' 
-                https://*.mercadopago.com 
-                https://*.mercadopago.com.ar 
-                https://*.mercadopago.com.br 
-                https://*.mercadopago.com.mx 
-                https://*.mlstatic.com 
-                https://*.framer.com 
-                https://framer.com 
-                https://*.framer.app 
-                https://*.framercanvas.com 
-                https://alturadivina.com 
-                https://*.mercadolibre.com 
-                https://*.mercadolivre.com;
-                
-              object-src 'none';
-              base-uri 'self';
-              form-action 'self' 
-                https://*.mercadopago.com 
-                https://api.mercadopago.com;
-              frame-ancestors 'self' 
-                https://*.framer.com 
-                https://framer.com 
-                https://*.framer.app 
-                https://*.framercanvas.com 
-                https://framercanvas.com 
-                https://alturadivina.com;
-            `.replace(/\s{2,}/g, ' ').trim(),
-          },
-          {
             key: 'X-Content-Type-Options',
             value: 'nosniff',
           },
           {
             key: 'X-Frame-Options',
-            value: 'SAMEORIGIN',
-          },
-          {
-            key: 'Referrer-Policy',
-            value: 'strict-origin-when-cross-origin',
-          },
-          {
-            key: 'Strict-Transport-Security',
-            value: 'max-age=63072000; includeSubDomains; preload',
+            value: 'DENY',
           },
           {
             key: 'X-XSS-Protection',
             value: '1; mode=block',
           },
+          // Header específico para viewport móvil
           {
-            key: 'Permissions-Policy',
-            value: 'payment=(self "https://*.framer.com" "https://framer.com"), camera=(), microphone=(), geolocation=()',
-          }
+            key: 'X-Mobile-Viewport',
+            value: 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no',
+          },
         ],
       },
-    ];
+    ]
   },
-};
 
-export default nextConfig;
+  // Configuración para mejor manejo de errores
+  onDemandEntries: {
+    maxInactiveAge: 25 * 1000,
+    pagesBufferLength: 2,
+  },
+
+  // Webpack config para mejorar compatibilidad
+  webpack: (config, { isServer }) => {
+    if (!isServer) {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        fs: false,
+        net: false,
+        tls: false,
+      }
+    }
+    return config
+  },
+}
+
+export default nextConfig
