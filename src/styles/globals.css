@@ -81,18 +81,31 @@ input, select, textarea {
   }
 }
 
-/* Prevenir parpadeo durante la hidratación */
-[data-hydrating] {
+/* Optimización de hidratación - NO causar conflictos servidor/cliente */
+html:not([data-hydrated]) {
+  /* Estado inicial - mismo en servidor y cliente */
+  visibility: visible;
+  opacity: 1;
+}
+
+html[data-hydrated] {
+  /* Estado post-hidratación */
+  visibility: visible;
+  opacity: 1;
+  /* Indicador sutil de que la hidratación completó */
+  --hydration-state: 'complete';
+}
+
+/* Prevenir parpadeo durante la hidratación - SIN conflictos */
+[data-hydrating]:not(html):not(body) {
   opacity: 0;
   transition: opacity 0.3s ease-in-out;
-  /* Prevenir reflow durante hidratación */
   visibility: hidden;
 }
 
-[data-hydrated] {
+[data-hydrated]:not(html):not(body) {
   opacity: 1;
   visibility: visible;
-  /* Asegurar que el contenido sea visible después de hidratación */
   animation: fadeInAfterHydration 0.3s ease-in-out;
 }
 
