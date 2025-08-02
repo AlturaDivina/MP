@@ -93,7 +93,16 @@ export default function PaymentFlow({
   const { saveCustomer, saving: savingCustomer } = useCustomerSave();
 
   // Obtener datos del carrito
-  const { items, totalAmount, clearCart, addItem, updateQuantity, removeItem } = useCart();
+  const { items, totalAmount, clearCart, addItem, updateQuantity, removeItem, isHydrated } = useCart();
+
+  // NUEVO: No renderizar hasta que el carrito esté hidratado
+  const [isClientReady, setIsClientReady] = useState(false);
+
+  useEffect(() => {
+    if (isHydrated) {
+      setIsClientReady(true);
+    }
+  }, [isHydrated]);
 
   // NUEVO: Función para calcular subtotal
   const calculateSubtotal = () => {
@@ -536,12 +545,12 @@ export default function PaymentFlow({
     }
   }, []);
 
-  if (loading) {
+  if (loading || !isClientReady) {
     return (
       <div className={cn(styles['mp-container'], className)} style={containerStyles}>
         <div className={styles['mp-loading']}>
           <div className={styles['mp-spinner']}></div>
-          <p>Cargando productos...</p>
+          <p>{loading ? 'Cargando productos...' : 'Preparando carrito...'}</p>
         </div>
       </div>
     );
