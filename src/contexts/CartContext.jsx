@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useReducer, useEffect, useState } from 'react';
+import React, { createContext, useReducer, useEffect } from 'react';
 import { logInfo } from '../utils/logger';
 
 export const CartContext = createContext();
@@ -11,8 +11,7 @@ export const CART_ACTIONS = {
   REMOVE_ITEM: 'REMOVE_ITEM',
   UPDATE_QUANTITY: 'UPDATE_QUANTITY',
   CLEAR_CART: 'CLEAR_CART',
-  SYNC_CART_FROM_STORAGE: 'SYNC_CART_FROM_STORAGE',
-  HYDRATE_CART: 'HYDRATE_CART', // Nueva acción para la hidratación
+  SYNC_CART_FROM_STORAGE: 'SYNC_CART_FROM_STORAGE', // Nueva acción
 };
 
 // Estado inicial
@@ -119,15 +118,6 @@ function cartReducer(state, action) {
     case CART_ACTIONS.CLEAR_CART:
       return initialState;
 
-    case CART_ACTIONS.HYDRATE_CART: {
-      // Acción específica para la hidratación del carrito
-      const cartData = action.payload;
-      return {
-        ...state,
-        ...cartData,
-      };
-    }
-
     case CART_ACTIONS.SYNC_CART_FROM_STORAGE: {
       if (typeof window !== 'undefined') {
         const savedCart = sessionStorage.getItem('mp-cart');
@@ -153,39 +143,32 @@ function cartReducer(state, action) {
 }
 
 export const CartProvider = ({ children }) => {
-  const [isHydrated, setIsHydrated] = useState(false);
-  const [cartState, dispatch] = useReducer(cartReducer, initialState);
-
-  // Hidratar el carrito después de que el componente se monte (solo en el cliente)
-  useEffect(() => {
+  // Recuperar estado del carrito del localStorage
+  const getInitialState = () => {
     if (typeof window !== 'undefined') {
       const savedCart = sessionStorage.getItem('mp-cart');
       if (savedCart) {
         try {
-          const parsedCart = JSON.parse(savedCart);
-          dispatch({
-            type: CART_ACTIONS.HYDRATE_CART,
-            payload: parsedCart,
-          });
+          return JSON.parse(savedCart);
         } catch (error) {
-          console.error('Error parsing saved cart:', error);
+          return initialState;
         }
       }
-      setIsHydrated(true);
     }
-  }, []);
+    return initialState;
+  };
 
-  // Guardar el estado del carrito en sessionStorage cuando cambie (solo después de la hidratación)
+  const [cartState, dispatch] = useReducer(cartReducer, getInitialState());
+
+  // Guardar el estado del carrito en localStorage cuando cambie
   useEffect(() => {
-    if (isHydrated && typeof window !== 'undefined') {
+    if (typeof window !== 'undefined') {
       sessionStorage.setItem('mp-cart', JSON.stringify(cartState));
     }
-  }, [cartState, isHydrated]);
+  }, [cartState]);
 
-  // NUEVO: useEffect para escuchar eventos de storage (solo después de la hidratación)
+  // NUEVO: useEffect para escuchar eventos de storage
   useEffect(() => {
-    if (!isHydrated) return;
-
     const handleStorageChange = (event) => {
       if (event.key === 'mp-cart' && event.storageArea === sessionStorage) {
         logInfo('StorageEvent detectado para mp-cart. Sincronizando carrito.');
@@ -198,7 +181,7 @@ export const CartProvider = ({ children }) => {
     return () => {
       window.removeEventListener('storage', handleStorageChange);
     };
-  }, [isHydrated]);
+  }, [dispatch]); // dispatch es estable y no necesita estar en las dependencias si se usa useCallback para las action creators
 
   // Funciones para interactuar con el carrito
   const addItem = (product, quantity = 1) => {
@@ -238,7 +221,6 @@ export const CartProvider = ({ children }) => {
     removeItem,
     updateQuantity,
     clearCart,
-    isHydrated, // Exponer el estado de hidratación
   };
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;

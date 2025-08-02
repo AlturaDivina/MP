@@ -17,7 +17,6 @@
     "test:webhook:complete": "node src/scripts/test-webhook-flow-with-mock.js",
     "test:webhook:v2": "node src/scripts/test-webhook-v2.js",
     "diagnose": "node src/scripts/diagnose-env.js",
-    "diagnose:mobile": "node src/scripts/diagnose-mobile.cjs",
     "test:webhook:debug": "node --inspect src/scripts/test-webhook-v2.js",
     "env:check": "node -e \"require('dotenv').config({path: '.env.local'}); console.log('✅ Variables cargadas:', Object.keys(process.env).filter(k => k.includes('MERCADO') || k.includes('SUPABASE')).length);\""
   },

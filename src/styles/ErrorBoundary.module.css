@@ -6,104 +6,27 @@
   border: 1px solid #ffdddd;
   border-radius: 8px;
   text-align: center;
-  min-height: 200px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-}
-
-/* Responsive para móviles */
-@media (max-width: 768px) {
-  .errorContainer {
-    margin: 0.5rem;
-    padding: 1.5rem;
-    border-radius: 4px;
-    min-height: 300px;
-  }
 }
 
 .errorContainer h2 {
   color: #e74c3c;
   margin-top: 0;
-  margin-bottom: 1rem;
-  font-size: 1.5rem;
 }
 
-@media (max-width: 768px) {
-  .errorContainer h2 {
-    font-size: 1.25rem;
-  }
-}
-
-.errorContainer p {
-  margin-bottom: 1rem;
-  line-height: 1.5;
-}
-
-.actionButtons {
-  display: flex;
-  gap: 1rem;
-  margin-top: 1.5rem;
-  flex-wrap: wrap;
-  justify-content: center;
-}
-
-@media (max-width: 768px) {
-  .actionButtons {
-    flex-direction: column;
-    gap: 0.75rem;
-    width: 100%;
-  }
-}
-
-.retryButton,
-.reloadButton {
+.retryButton {
   background-color: #F26F32;
   color: white;
   border: none;
-  padding: 12px 24px;
+  padding: 10px 20px;
   border-radius: 4px;
   font-weight: 500;
   cursor: pointer;
+  margin-top: 1rem;
   transition: background-color 0.2s;
-  font-size: 1rem;
-  min-width: 140px;
-}
-
-.reloadButton {
-  background-color: #6c757d;
-}
-
-@media (max-width: 768px) {
-  .retryButton,
-  .reloadButton {
-    width: 100%;
-    padding: 14px 24px;
-    font-size: 1.1rem;
-  }
 }
 
 .retryButton:hover {
   background-color: #e55e20;
-}
-
-.reloadButton:hover {
-  background-color: #5a6268;
-}
-
-.helpText {
-  margin-top: 1.5rem;
-  color: #666;
-  font-size: 0.875rem;
-  line-height: 1.4;
-}
-
-@media (max-width: 768px) {
-  .helpText {
-    font-size: 0.8rem;
-    margin-top: 1rem;
-  }
 }
 
 .errorDetails {
@@ -111,8 +34,6 @@
   text-align: left;
   border-top: 1px solid #eee;
   padding-top: 1rem;
-  width: 100%;
-  max-width: 100%;
 }
 
 .errorDetails summary {
@@ -127,14 +48,4 @@
   overflow-x: auto;
   font-size: 0.85rem;
   border-radius: 4px;
-  margin: 0.5rem 0;
-  white-space: pre-wrap;
-  word-break: break-word;
-}
-
-@media (max-width: 768px) {
-  .errorDetails pre {
-    font-size: 0.75rem;
-    padding: 0.75rem;
-  }
 }
