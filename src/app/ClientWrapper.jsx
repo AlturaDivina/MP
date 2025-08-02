@@ -1,79 +1,38 @@
-'use client'
+'use client';
 
-import { useEffect, useState } from 'react'
-import ErrorBoundary from '../components/ErrorBoundary'
-import { CartProvider } from '../contexts/CartContext'
+import { useEffect } from 'react';
+import { CartProvider } from '../contexts/CartContext';
+import { CartAPIProvider } from '../utils/CartIntegration';
+import ErrorBoundary from '../components/ErrorBoundary';
+import { fixMobileRenderingIssues } from '../utils/mobileUtils';
 
 export default function ClientWrapper({ children }) {
-  const [isHydrated, setIsHydrated] = useState(false)
-  const [isMounted, setIsMounted] = useState(false)
-
   useEffect(() => {
-    // Marcar como montado
-    setIsMounted(true)
+    // Configurar optimizaciones para móviles
+    fixMobileRenderingIssues();
     
-    // Asegurar hidratación completa
-    const timer = setTimeout(() => {
-      setIsHydrated(true)
-    }, 100)
-
-    // Configuraciones móviles específicas
-    if (typeof window !== 'undefined') {
-      // Prevenir zoom en iOS
-      const viewport = document.querySelector('meta[name="viewport"]')
-      if (viewport) {
-        viewport.setAttribute('content', 
-          'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover'
-        )
-      }
-      
-      // Configuraciones adicionales para móviles
-      document.body.style.overscrollBehavior = 'none'
-      document.body.style.webkitOverflowScrolling = 'touch'
-      document.body.style.webkitUserSelect = 'none'
-      document.body.style.webkitTouchCallout = 'none'
-    }
-
-    return () => clearTimeout(timer)
-  }, [])
-
-  // Renderizado condicional para evitar hydration mismatch
-  if (!isMounted) {
-    return (
-      <div suppressHydrationWarning={true}>
-        <div style={{ 
-          display: 'flex', 
-          justifyContent: 'center', 
-          alignItems: 'center', 
-          height: '100vh',
-          fontSize: '16px',
-          fontFamily: 'system-ui',
-          backgroundColor: '#f8f9fa'
-        }}>
-          Cargando aplicación...
-        </div>
-      </div>
-    )
-  }
+    // Escuchar eventos de problemas de renderizado
+    const handleMobileIssues = (event) => {
+      console.warn('🚨 Problemas de renderizado móvil:', event.detail);
+      // Aquí podrías enviar a un servicio de logging como Sentry
+    };
+    
+    window.addEventListener('MOBILE_RENDERING_ISSUES', handleMobileIssues);
+    
+    return () => {
+      window.removeEventListener('MOBILE_RENDERING_ISSUES', handleMobileIssues);
+    };
+  }, []);
 
   return (
-    <div suppressHydrationWarning={true}>
-      <ErrorBoundary>
-        <CartProvider>
-          {isHydrated ? children : (
-            <div style={{ 
-              display: 'flex', 
-              justifyContent: 'center', 
-              alignItems: 'center', 
-              height: '100vh',
-              fontSize: '16px',
-              fontFamily: 'system-ui'
-            }}>
-              Preparando componentes...
-            </div>
-          )}
-        </CartProvider>
-      </ErrorBoundary>
-    </div>
-  )
+    <ErrorBoundary>
+      <CartProvider>
+        {/* Esto expone la API del carrito para componentes externos */}
+        <CartAPIProvider />
+        
+        {/* Tu app */}
+        {children}
+      </CartProvider>
+    </ErrorBoundary>
+  );
 }

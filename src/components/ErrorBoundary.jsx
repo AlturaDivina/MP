@@ -1,168 +1,135 @@
-'use client'
+'use client';
 
-import { Component } from 'react'
-import { logSecurityEvent } from '../lib/security-logger'
-import styles from '../styles/ErrorBoundary.module.css'
+import { Component } from 'react';
+import { logSecurityEvent } from '../lib/security-logger';
+import styles from '../styles/ErrorBoundary.module.css';
 
 export default class ErrorBoundary extends Component {
   constructor(props) {
-    super(props)
+    super(props);
     this.state = { 
       hasError: false, 
       error: null, 
       errorInfo: null,
-      isHydrationError: false 
-    }
+      isHydrationError: false,
+      retryCount: 0
+    };
   }
 
   static getDerivedStateFromError(error) {
-    // Detectar errores de hidratación específicamente
+    // Detectar errores de hidratación comunes
     const isHydrationError = error.message && (
-      error.message.includes('hydrat') ||
+      error.message.includes('Hydration') ||
+      error.message.includes('hydration') ||
       error.message.includes('server') ||
-      error.message.includes('client') ||
-      error.message.includes('mismatch')
-    )
+      error.message.includes('client')
+    );
     
     return { 
       hasError: true, 
       error,
-      isHydrationError 
-    }
+      isHydrationError
+    };
   }
 
   componentDidCatch(error, errorInfo) {
-    // Registrar el error
+    // Registrar el error con nuestro logger de seguridad
     logSecurityEvent('react_error', { 
       message: error.message,
       stack: error.stack,
       componentStack: errorInfo.componentStack,
+      userAgent: typeof window !== 'undefined' ? navigator.userAgent : 'server',
+      isMobile: typeof window !== 'undefined' ? /Mobile|Android|iPhone|iPad/.test(navigator.userAgent) : false,
       isHydrationError: this.state.isHydrationError
     }, 'error');
     
     this.setState({ errorInfo });
-
-    // Si es error de hidratación en móvil, intentar reload automático
-    if (this.state.isHydrationError && typeof window !== 'undefined') {
-      console.error('🚨 Error de hidratación detectado en móvil. Reintentando...')
-      
-      // Reintento automático después de 2 segundos
-      setTimeout(() => {
-        window.location.reload()
-      }, 2000)
-    }
   }
 
   handleRetry = () => {
-    this.setState({ 
-      hasError: false, 
-      error: null, 
-      errorInfo: null,
-      isHydrationError: false 
-    })
+    if (this.state.retryCount < 3) {
+      this.setState({ 
+        hasError: false, 
+        error: null, 
+        errorInfo: null,
+        retryCount: this.state.retryCount + 1
+      });
+    } else {
+      // Después de 3 intentos, recargar la página
+      window.location.reload();
+    }
   }
 
   render() {
     if (this.state.hasError) {
-      return (
-        <div style={{
-          padding: '20px',
-          textAlign: 'center',
-          fontFamily: 'system-ui',
-          backgroundColor: '#f8f9fa',
-          border: '1px solid #dee2e6',
-          borderRadius: '8px',
-          margin: '20px',
-          fontSize: '16px',
-          minHeight: '100vh',
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'center',
-          alignItems: 'center'
-        }}>
-          <h2 style={{ color: '#dc3545', marginBottom: '15px' }}>
-            {this.state.isHydrationError ? 'Error de Carga' : 'Oops! Algo salió mal'}
-          </h2>
-          
-          <p style={{ color: '#6c757d', marginBottom: '15px', maxWidth: '400px' }}>
-            {this.state.isHydrationError 
-              ? 'La aplicación está reintentando cargar automáticamente. Si el problema persiste, intenta recargar manualmente.'
-              : 'La aplicación encontró un error inesperado.'
-            }
-          </p>
-
-          {this.state.isHydrationError && (
-            <div style={{ 
-              color: '#ffc107', 
-              fontSize: '14px', 
-              marginBottom: '15px',
-              animation: 'pulse 1.5s ease-in-out infinite alternate'
-            }}>
-              Reintentando en unos segundos...
+      // Renderizar UI de fallback específica para errores de hidratación
+      if (this.state.isHydrationError) {
+        return (
+          <div className={styles.errorContainer}>
+            <h2>⚠️ Error de Carga</h2>
+            <p>Estamos teniendo problemas para cargar el contenido correctamente.</p>
+            <p>Esto puede suceder en algunos navegadores móviles.</p>
+            
+            <div className={styles.actionButtons}>
+              <button 
+                onClick={this.handleRetry}
+                className={styles.retryButton}
+              >
+                {this.state.retryCount < 3 ? 'Reintentar' : 'Recargar Página'}
+              </button>
+              
+              <button 
+                onClick={() => window.location.reload()} 
+                className={styles.reloadButton}
+              >
+                Recargar Página
+              </button>
             </div>
-          )}
+            
+            <small className={styles.helpText}>
+              Si el problema persiste, intenta usar el navegador en modo privado/incógnito.
+            </small>
+          </div>
+        );
+      }
+      
+      // UI de fallback para otros errores
+      return (
+        <div className={styles.errorContainer}>
+          <h2>Algo salió mal</h2>
+          <p>Disculpa las molestias. Por favor intenta recargar la página o contacta a soporte.</p>
           
-          <button 
-            onClick={() => window.location.reload()}
-            style={{
-              backgroundColor: '#007bff',
-              color: 'white',
-              border: 'none',
-              padding: '12px 24px',
-              borderRadius: '6px',
-              cursor: 'pointer',
-              fontSize: '16px',
-              marginBottom: '10px'
-            }}
-          >
-            Recargar página
-          </button>
-
-          <button 
-            onClick={this.handleRetry}
-            style={{
-              backgroundColor: '#28a745',
-              color: 'white',
-              border: 'none',
-              padding: '10px 20px',
-              borderRadius: '6px',
-              cursor: 'pointer',
-              fontSize: '14px'
-            }}
-          >
-            Reintentar componente
-          </button>
+          <div className={styles.actionButtons}>
+            <button 
+              onClick={this.handleRetry}
+              className={styles.retryButton}
+            >
+              {this.state.retryCount < 3 ? 'Reintentar' : 'Recargar Página'}
+            </button>
+            
+            <button 
+              onClick={() => window.location.reload()} 
+              className={styles.reloadButton}
+            >
+              Recargar Página
+            </button>
+          </div>
           
-          {process.env.NODE_ENV === 'development' && (
-            <details style={{ marginTop: '20px', textAlign: 'left', width: '100%', maxWidth: '600px' }}>
-              <summary style={{ cursor: 'pointer', color: '#6c757d' }}>
-                Detalles del error (desarrollo)
-              </summary>
-              <pre style={{ 
-                fontSize: '12px', 
-                backgroundColor: '#f1f3f4', 
-                padding: '10px', 
-                borderRadius: '4px',
-                overflow: 'auto',
-                whiteSpace: 'pre-wrap'
-              }}>
-                {this.state.error && this.state.error.toString()}
-                <br />
-                {this.state.errorInfo?.componentStack}
-              </pre>
+          {/* Solo mostrar detalles técnicos en desarrollo */}
+          {process.env.NODE_ENV !== 'production' && (
+            <details className={styles.errorDetails}>
+              <summary>Detalles del error</summary>
+              <p><strong>Mensaje:</strong> {this.state.error?.message}</p>
+              <p><strong>Es error de hidratación:</strong> {this.state.isHydrationError ? 'Sí' : 'No'}</p>
+              <p><strong>Intentos:</strong> {this.state.retryCount}</p>
+              <pre>{this.state.error?.stack}</pre>
+              <pre>{this.state.errorInfo?.componentStack}</pre>
             </details>
           )}
-
-          <style jsx>{`
-            @keyframes pulse {
-              from { opacity: 0.6; }
-              to { opacity: 1; }
-            }
-          `}</style>
         </div>
-      )
+      );
     }
 
-    return this.props.children
+    return this.props.children;
   }
 }

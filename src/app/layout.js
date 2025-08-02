@@ -29,12 +29,19 @@ const playfair = Playfair_Display_SC({
 export const metadata = {
   title: 'Componente de Pago MercadoPago',
   description: 'Componente React para integraciones con MercadoPago',
-  viewport: 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover',
+  viewport: 'width=device-width, initial-scale=1, viewport-fit=cover',
 }
 
 export default function RootLayout({ children }) {
   return (
     <html lang="es" className={`${inter.variable} ${bodoni.variable} ${playfair.variable}`}>
+      <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+        <link 
+          href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Bodoni+Moda:wght@400;500;600;700&family=Playfair+Display+SC:wght@400;700&display=swap" 
+          rel="stylesheet" 
+        />
+      </head>
       <body>
         <ClientWrapper>
           {children}
