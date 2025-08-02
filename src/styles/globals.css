@@ -55,10 +55,6 @@ input, select, textarea {
     -webkit-user-select: none;
     -webkit-touch-callout: none;
     -webkit-tap-highlight-color: transparent;
-    /* Prevenir el problema de hidratación en móviles */
-    position: relative;
-    -webkit-backface-visibility: hidden;
-    backface-visibility: hidden;
   }
 
   /* Prevenir zoom en inputs */
@@ -66,18 +62,12 @@ input, select, textarea {
     font-size: 16px !important;
     -webkit-appearance: none;
     border-radius: 0;
-    /* Prevenir problemas de hidratación en inputs */
-    -webkit-user-select: text;
-    user-select: text;
   }
 
   /* Mejorar renderizado en dispositivos móviles */
   * {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    /* Forzar hardware acceleration */
-    -webkit-transform: translateZ(0);
-    transform: translateZ(0);
   }
 }
 
@@ -85,26 +75,10 @@ input, select, textarea {
 [data-hydrating] {
   opacity: 0;
   transition: opacity 0.3s ease-in-out;
-  /* Prevenir reflow durante hidratación */
-  visibility: hidden;
 }
 
 [data-hydrated] {
   opacity: 1;
-  visibility: visible;
-  /* Asegurar que el contenido sea visible después de hidratación */
-  animation: fadeInAfterHydration 0.3s ease-in-out;
-}
-
-@keyframes fadeInAfterHydration {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
 }
 
 /* Aplicar fuentes para títulos principales */
@@ -143,18 +117,12 @@ input, select, textarea {
   padding: 0.75rem 2rem !important;
   cursor: pointer;
   font-size: 1rem;
-  /* Prevenir problemas de touch en móviles */
-  touch-action: manipulation;
-  -webkit-tap-highlight-color: transparent;
 }
 
 /* MercadoPago specific styles */
 /* Estilos específicos para el formulario de tarjeta */
 .mp-checkout-container {
   font-family: var(--mp-font-body) !important;
-  /* Asegurar que se renderice correctamente en móviles */
-  -webkit-transform: translateZ(0);
-  transform: translateZ(0);
 }
 
 .mp-checkout-container input,
@@ -164,9 +132,6 @@ input, select, textarea {
   border: 1px solid #ccc !important;
   border-radius: 4px !important;
   padding: 0.75rem 1rem !important;
-  /* Optimizaciones para móviles */
-  touch-action: manipulation;
-  -webkit-appearance: none;
 }
 
 .mp-checkout-container label {
@@ -198,8 +163,6 @@ input, select, textarea {
   max-width: 1000px !important;
   margin: 0 auto;
   padding: 2rem;
-  /* Optimizaciones para hidratación */
-  contain: layout style paint;
 }
 
 .mp-page-title {
@@ -227,9 +190,6 @@ input, select, textarea {
   border-radius: 4px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.08);
   padding: 2rem;
-  /* Mejoras para hidratación en móviles */
-  isolation: isolate;
-  contain: layout style paint;
 }
 
 /* Improved Form Elements */
@@ -238,9 +198,6 @@ input, select, textarea {
   transition: var(--transition);
   height: 48px;
   border: 1px solid #ddd !important;
-  /* Optimizaciones para móviles */
-  touch-action: manipulation;
-  -webkit-appearance: none;
 }
 
 .mp-select-input:hover,
@@ -259,9 +216,6 @@ input, select, textarea {
 .mp-button {
   transition: var(--transition);
   font-weight: 600 !important;
-  /* Optimizaciones para touch */
-  touch-action: manipulation;
-  -webkit-tap-highlight-color: transparent;
 }
 
 .mp-button.mp-primary {
@@ -303,9 +257,6 @@ input, select, textarea {
   border: 1px solid #ddd !important;
   border-radius: 4px !important;
   background-color: #fff !important;
-  /* Optimizaciones para móviles */
-  touch-action: manipulation;
-  -webkit-appearance: none;
 }
 
 .react-tel-input .flag-dropdown {
@@ -322,45 +273,4 @@ input, select, textarea {
 
 .react-tel-input .selected-flag .arrow {
   border-top: 4px solid #555 !important;
-}
-
-/* Estilos específicos para prevenir problemas de hidratación en móviles */
-@media screen and (max-width: 768px) {
-  /* Optimizaciones específicas para componentes de carrito */
-  .cart-item,
-  .product-item,
-  .payment-form {
-    /* Forzar repaint después de hidratación */
-    will-change: transform;
-    -webkit-transform: translateZ(0);
-    transform: translateZ(0);
-  }
-  
-  /* Prevenir problemas con botones de agregar al carrito */
-  button[data-action="add-to-cart"],
-  .add-to-cart-button,
-  .mp-button {
-    /* Asegurar que los eventos touch funcionen correctamente */
-    -webkit-user-select: none;
-    user-select: none;
-    -webkit-touch-callout: none;
-    touch-action: manipulation;
-  }
-  
-  /* Optimizaciones para formularios */
-  form {
-    /* Prevenir problemas de reflow durante hidratación */
-    contain: layout style;
-  }
-  
-  /* Asegurar que los inputs se rendericen correctamente */
-  input[type="number"],
-  select {
-    /* Prevenir zoom y problemas de hidratación */
-    font-size: 16px !important;
-    -webkit-appearance: none;
-    appearance: none;
-    -webkit-user-select: text;
-    user-select: text;
-  }
 }

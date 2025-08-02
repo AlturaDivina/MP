@@ -1,477 +1,335 @@
-'use client';
-
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { initMercadoPago, Payment } from '@mercadopago/sdk-react';
+import cn from 'classnames';
 import styles from '../styles/MercadoPagoProvider.module.css';
-import '../styles/mercadopago-globals.css';
-import ClientOnly from './ClientOnly';
-import { useHydration } from '../hooks/useHydration';
-import { cn } from '../lib/utils';
-import { logInfo, logError, logWarn } from '../lib/logger';
+import '../styles/mercadopago-globals.css'; 
+import { logInfo, logError } from '../utils/logger';
+import { sanitizeInput } from '../utils/sanitize';
 
-// Función para sanitizar datos de entrada (actualizada)
-function sanitizeInput(value, type) {
-  switch(type) {
-    case 'productId':
-      return typeof value === 'string' && /^[a-zA-Z0-9-]{1,64}$/.test(value) 
-        ? value 
-        : 'default-product-id';
-        
-    case 'quantity':
-      const qty = parseInt(value);
-      const MAX_SAFE_QTY = 100000; 
-      return !isNaN(qty) && qty > 0 && qty <= MAX_SAFE_QTY ? qty : 1;
-      
-    case 'url':
-      if (typeof value !== 'string') return '';
-      try {
-        const url = new URL(value, window.location.origin);
-        return url.toString();
-      } catch (e) {
-        logError("URL inválida:", value);
-        return '';
-      }
-        
-    case 'email':
-      return typeof value === 'string' && 
-        /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(value)
-        ? value
-        : 'cliente@example.com';
-        
-    default:
-      return value;
-  }
-}
+import { useMercadoPagoSdk } from '../hooks/useMercadoPagoSdk';
+import { useMercadoPagoPreference } from '../hooks/useMercadoPagoPreference';
+import { useMercadoPagoBrickSubmit } from '../hooks/useMercadoPagoBrickSubmit';
 
 export default function MercadoPagoProvider({
   productId,
   quantity = 1,
   totalAmount = null,
   orderSummary = null,
+  userData = null,
   publicKey,
   apiBaseUrl,
   successUrl,
   pendingUrl,
   failureUrl,
-  onSuccess = () => {},
-  onError = () => {},
+  onSuccess: onSuccessCallback = () => {},
+  onError: onErrorCallback = () => {},
   className = '',
   containerStyles = {},
   hideTitle = false,
 }) {
-  const isHydrated = useHydration();
+  const hostUrl = process.env.NEXT_PUBLIC_HOST_URL || 'http://localhost:3000';
+
+  const { sdkReady, sdkError, mercadoPagoSdkInstance } = useMercadoPagoSdk(publicKey);
   
-  const [loading, setLoading] = useState(true);
+  const { preferenceId, isLoadingPreference, preferenceError } = useMercadoPagoPreference({
+    orderSummary,
+    userData,
+    apiBaseUrl,
+    successUrl,
+    pendingUrl,
+    failureUrl,
+    hostUrl,
+    isSdkReady: sdkReady,
+  });
+
+  const { 
+    handleSubmit: processPayment, 
+    isProcessing, 
+    processingError: submitError, 
+    statusMsg: submitStatusMsg 
+  } = useMercadoPagoBrickSubmit({
+    apiBaseUrl,
+    orderSummary,
+    productId,
+    quantity,
+    totalAmount: totalAmount !== null ? totalAmount : (orderSummary ? orderSummary.reduce((sum, item) => sum + item.price * item.quantity, 0) : 0),
+    userData,
+    onSuccess: onSuccessCallback,
+    onError: onErrorCallback,
+    successUrl,
+    pendingUrl,
+    failureUrl,
+    hostUrl,
+  });
+
   const [displayError, setDisplayError] = useState(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [attemptCount, setAttemptCount] = useState(0);
   const [statusMsg, setStatusMsg] = useState('');
-  const [productData, setProductData] = useState(null);
-  const [isFetchingProduct, setIsFetchingProduct] = useState(false);
-  const [preferenceId, setPreferenceId] = useState(null);
-
-  const sanitizedProductId = sanitizeInput(productId, 'productId');
-  const sanitizedQuantity = sanitizeInput(quantity, 'quantity');
 
   useEffect(() => {
-    if (!isHydrated) return;
-    
-    if (publicKey) {
-      initMercadoPago(publicKey);
-    } else {
-      const configError = 'Error de configuración: Falta la clave pública.';
-      logError('MercadoPagoProvider requires a publicKey prop.');
-      setDisplayError(configError);
-      setLoading(false);
-    }
-  }, [publicKey, isHydrated]);
+    if (sdkError) setDisplayError(sdkError);
+    else if (preferenceError) setDisplayError(preferenceError);
+    else if (submitError) setDisplayError(submitError);
+    else setDisplayError(null);
+  }, [sdkError, preferenceError, submitError]);
 
   useEffect(() => {
-    if (!isHydrated) return;
-    
-    if (orderSummary?.length > 0 && !displayError && !preferenceId && !isSubmitting) {
-      createPreference();
-    }
-  }, [orderSummary, displayError, preferenceId, isSubmitting, isHydrated]);
+    if (submitStatusMsg) setStatusMsg(submitStatusMsg);
+    else if (isLoadingPreference) setStatusMsg('Generando formulario de pago...');
+    else if (isProcessing) setStatusMsg('Procesando pago...');
+    else setStatusMsg('');
+  }, [submitStatusMsg, isLoadingPreference, isProcessing]);
 
-  const fetchProduct = useCallback(async () => {
-    if (!isHydrated) return;
-    
-    if (orderSummary && orderSummary.length > 0) {
-      logInfo('Usando datos de múltiples productos desde orderSummary:', orderSummary);
-      setProductData({ id: 'multiple-products', name: 'Múltiples productos', price: 0 });
-      setLoading(false);
-      setAttemptCount(0);
-      return;
-    }
-
-    if (!sanitizedProductId) {
-      setDisplayError('Falta el ID del producto');
-      setLoading(false);
-      return;
-    }
-
-    if (!apiBaseUrl) {
-      setDisplayError('Falta la URL base de la API para obtener el producto');
-      setLoading(false);
-      return;
-    }
-
-    setIsFetchingProduct(true);
-    setDisplayError(null);
-    setLoading(true);
-
-    try {
-      const productUrl = `${apiBaseUrl.replace(/\/$/, '')}/api/products/${sanitizedProductId}`;
-      if (process.env.NODE_ENV === 'development') {
-        logInfo('Fetching specific product from:', productUrl);
-      }
-      
-      const response = await fetch(productUrl);
-      if (!response.ok) {
-        throw new Error(`Error ${response.status}: No se pudo obtener el producto`);
-      }
-      const productInfo = await response.json();
-      if (process.env.NODE_ENV === 'development') {
-        logInfo('Product fetched successfully:', productInfo);
-      }
-      setProductData(productInfo);
-      setAttemptCount(0);
-    } catch (err) {
-      logError('Error obteniendo producto:', err);
-      setDisplayError(`Error al cargar datos del producto: ${err.message}`);
-      setAttemptCount(prev => prev + 1);
-      if (onError) onError(err);
-    } finally {
-      setLoading(false);
-      setIsFetchingProduct(false);
-    }
-  }, [apiBaseUrl, sanitizedProductId, orderSummary, onError, isHydrated]);
-
-  useEffect(() => {
-    if (!isHydrated) return;
-    fetchProduct();
-  }, [fetchProduct, isHydrated]);
-
-  useEffect(() => {
-    if (!isHydrated) return;
-    
-    if (productData && orderSummary?.length > 0 && !displayError && !preferenceId && !isSubmitting) {
-      createPreference();
-    }
-  }, [productData, orderSummary, displayError, preferenceId, isSubmitting, isHydrated]);
-
-  const createPreference = async () => {
-    if (!orderSummary || orderSummary.length === 0) {
-      setDisplayError("No hay productos para procesar");
-      return;
-    }
-    
-    setIsSubmitting(true);
-    setStatusMsg('Generando formulario de pago...');
-    
-    try {
-      const fullSuccessUrl = successUrl || `${window.location.origin}/success`;
-      const fullPendingUrl = pendingUrl || `${window.location.origin}/pending`;
-      const fullFailureUrl = failureUrl || `${window.location.origin}/failure`;
-      
-      logInfo("Enviando solicitud de preferencia con URLs:", {
-        successUrl: fullSuccessUrl,
-        pendingUrl: fullPendingUrl,
-        failureUrl: fullFailureUrl
-      });
-      
-      const response = await fetch(`${apiBaseUrl}/api/create-preference`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
+  // Usa colores fijos en la configuración visual
+  const paymentCustomization = {
+    visual: {
+      hideFormTitle: hideTitle,
+      hidePaymentButton: false,
+      style: {
+        theme: 'default',
+        colors: {
+          primary: '#F26F32',
+          secondary: '#E5E5E5',
+          error: '#e74c3c',
+          background: '#FFFFFF',
+          text: '#333333'
         },
-        body: JSON.stringify({
-          orderSummary,
-          successUrl: fullSuccessUrl,
-          pendingUrl: fullPendingUrl,
-          failureUrl: fullFailureUrl
-        }),
-      });
-      
-      const data = await response.json();
-      
-      if (!response.ok) {
-        logError("Error creando preferencia:", data);
-        throw new Error(data.error || `Error del servidor: ${response.status}`);
+        borderRadius: '4px'
       }
-      
-      logInfo("Preferencia creada:", data);
-      
-      setPreferenceId(data.preferenceId);
-      setIsSubmitting(false);
-      setStatusMsg('');
-      
-    } catch (error) {
-      logError("Error creando preferencia:", error);
-      setDisplayError(`Error: ${error.message || 'Error desconocido'}`);
-      setIsSubmitting(false);
-      setStatusMsg('');
-      if (onError) onError(error);
+    },
+    paymentMethods: {
+      creditCard: 'all',
+      debitCard: 'all'
     }
   };
 
-  async function getCsrfToken() {
-    try {
-      const response = await fetch(`${apiBaseUrl}/api/csrf-token`, {
-        credentials: 'include'
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Failed to fetch CSRF token: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      return data.csrfToken;
-    } catch (error) {
-      logError("Error fetching CSRF token:", error);
-      throw error;
+  useEffect(() => {
+    // Send ready message to parent when loaded
+    if (window.parent !== window) {
+      window.parent.postMessage({ 
+        type: 'MP_COMPONENT_READY',
+        status: 'ready'
+      }, '*');
     }
-  }
-
-  const handleSubmit = async (formData) => {
-    if (!isHydrated) return;
     
-    try {
-      const csrfToken = await getCsrfToken();
-      
-      if (isSubmitting || (!productData && (!orderSummary || orderSummary.length === 0))) {
-        logInfo("No hay datos de producto para procesar");
+    // Listen for messages from parent
+    const handleMessage = (event) => {
+      // Only process messages from trusted domains
+      if (!event.origin.includes('framer.com') && !event.origin.includes('framer.app')) {
         return;
       }
-
-      if (process.env.NODE_ENV === 'development') {
-        logInfo("FormData original recibido del SDK:", formData);
+      
+      if (event.data.type === 'MP_CREATE_PREFERENCE') {
+        // Trigger preference creation
       }
-      
-      const tokenFromForm = formData.token || formData.formData?.token;
-      const paymentMethodFromForm = formData.payment_method_id || formData.formData?.payment_method_id;
-      
-      if (!tokenFromForm || !paymentMethodFromForm) {
-        logError("Campos críticos faltantes en formData:", { 
-          formDataRecibido: formData,
-          hasToken: !!tokenFromForm, 
-          hasPaymentMethodId: !!paymentMethodFromForm 
-        });
-        setDisplayError("Datos de pago incompletos. Por favor intente nuevamente.");
-        return;
-      }
+    };
+    
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, []);
 
-      setIsSubmitting(true);
-      setStatusMsg('Procesando pago...');
-      setDisplayError(null);
-
-      const finalAmount = orderSummary 
-        ? orderSummary.reduce((total, item) => total + (item.price * item.quantity), 0)
-        : (productData?.price || 0) * sanitizedQuantity;
-
-      const backendPayload = {
-        paymentType: formData.paymentType || "credit_card",
-        selectedPaymentMethod: formData.selectedPaymentMethod || "credit_card",
-        formData: {
-          token: tokenFromForm,
-          payment_method_id: paymentMethodFromForm,
-          issuer_id: formData.issuer_id || formData.formData?.issuer_id || '',
-          installments: parseInt(formData.installments || formData.formData?.installments || 1),
-          payer: {
-            email: formData.payer?.email || formData.formData?.payer?.email || 'cliente@example.com'
-          },
-        },
-        ...(orderSummary ? {} : { productId: sanitizedProductId, quantity: sanitizedQuantity }),
-        isMultipleOrder: orderSummary ? true : false,
-        orderSummary: orderSummary,
-        totalAmount: finalAmount
-      };
-
-      logInfo("Payload enviado al backend:", backendPayload);
-      
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000);
-      
-      logInfo("Enviando solicitud al backend...");
-      const response = await fetch(`${apiBaseUrl.replace(/\/$/, '')}/api/process-payment`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRF-Token': csrfToken,
-        },
-        body: JSON.stringify(backendPayload),
-        signal: controller.signal,
-        credentials: 'include'
-      });
-      
-      clearTimeout(timeoutId);
-      
-      logInfo("Respuesta recibida del backend, status:", response.status);
-      
-      const data = await response.json();
-      logInfo("Datos recibidos del backend:", data);
-
-      if (data.error) {
-        throw new Error(`Error en el pago: ${data.error}`);
-      }
-
-      setIsSubmitting(false);
-      setStatusMsg(`¡Pago procesado correctamente! ID: ${data.id}`);
-      const displayAmount = data.formattedAmount || data.amount.toLocaleString('es-MX');
-      logInfo(`Monto pagado: $${displayAmount}`);
-      
-      if (onSuccess) onSuccess(data);
-      
-      if (successUrl) {
-        window.location.href = successUrl;
-      }
-      
-    } catch (error) {
-      logError("Error procesando el pago:", error);
-      setDisplayError(`Error: ${error.name === 'AbortError' ? 'Tiempo de espera excedido' : error.message || 'Error desconocido'}`);
-      setIsSubmitting(false);
-      setStatusMsg('');
-      if (onError) onError(error);
-      
-      if (failureUrl) {
-        setTimeout(() => {
-          window.location.href = failureUrl;
-        }, 1500);
-      }
-    }
-  };
-
+  // Error handler for Payment component
   const handleError = (err) => {
-    logError("Error en Payment Brick:", err);
+    logError("Error en Payment:", err);
     setDisplayError('Error: No se pudo inicializar el formulario de pago.');
-    setIsSubmitting(false);
     if (process.env.NODE_ENV === 'development') {
-      logError('Detalles del error del Payment Brick:', err);
+      logError('Detalles del error de Payment:', err);
     }
-    if (onError) onError(err);
+    onErrorCallback(err);
   };
 
+  // Ready handler for Payment component
   const handleReady = () => {
-    // Optional: Clear status message or set a 'ready' message
+    logInfo('Payment está listo.');
   };
 
-  useEffect(() => {
-    if (!isHydrated) return;
-    
-    const timer = setTimeout(() => {
-      const container = document.getElementById('paymentBrick_container');
-      if (container) {
-        logInfo('Contenedor de pago encontrado y listo');
+  // Success handler for Payment component
+  const handleSuccess = (data) => {
+    logInfo("Pago exitoso:", data);
+
+    // Mapear status_detail a mensaje y URL
+    const statusDetail = data.status_detail || '';
+    const status = data.status || '';
+    let redirectUrl = failureUrl; // Default a failure por seguridad
+    let userMessage = 'Resultado del pago: ';
+
+    // Decisión basada en status y status_detail
+    if (status === 'approved') {
+      redirectUrl = successUrl;
+      userMessage = 'Pago aprobado y acreditado.';
+    }
+    else if (status === 'pending' || status === 'in_process') {
+      redirectUrl = pendingUrl; 
+      userMessage = 'Pago en proceso de validación.';
+    }
+    else {
+      // Si llegamos aquí, el pago fue rechazado o tuvo algún problema
+      redirectUrl = failureUrl;
+      
+      // Determinar mensaje específico según status_detail
+      switch (statusDetail) {
+        // CASOS DE TARJETAS DE CRÉDITO/DÉBITO RECHAZADAS
+        case 'cc_rejected_bad_filled_card_number':
+          userMessage += 'Número de tarjeta mal ingresado.';
+          break;
+        case 'cc_rejected_bad_filled_date':
+          userMessage += 'Fecha de vencimiento incorrecta.';
+          break;
+        case 'cc_rejected_bad_filled_security_code':
+          userMessage += 'Código de seguridad incorrecto.';
+          break;
+        case 'cc_rejected_bad_filled_other':
+          userMessage += 'Error en los datos ingresados.';
+          break;
+        case 'cc_rejected_high_risk':
+          userMessage += 'Pago rechazado por seguridad.';
+          break;
+        case 'cc_rejected_blacklist':
+          userMessage += 'La tarjeta se encuentra bloqueada.';
+          break;
+        case 'cc_rejected_insufficient_amount':
+          userMessage += 'Fondos insuficientes.';
+          break;
+        case 'cc_rejected_max_attempts':
+          userMessage += 'Excedió el límite de intentos permitidos.';
+          break;
+        case 'cc_rejected_call_for_authorize':
+          userMessage += 'Debe autorizar el pago con su banco.';
+          break;
+        case 'cc_rejected_duplicated_payment':
+          userMessage += 'Pago duplicado detectado.';
+          break;
+        case 'cc_rejected_card_disabled':
+          userMessage += 'Tarjeta deshabilitada temporalmente.';
+          break;
+          
+        // CASOS ESPECÍFICOS DE PAGOS PENDIENTES
+        case 'pending_contingency':
+          redirectUrl = pendingUrl;
+          userMessage = 'El pago está en proceso de revisión.';
+          break;
+        case 'pending_review_manual':
+          redirectUrl = pendingUrl;
+          userMessage = 'El pago está siendo revisado manualmente.';
+          break;
+        case 'pending_waiting_payment':
+          redirectUrl = pendingUrl;
+          userMessage = 'Esperando que realice el pago.';
+          break;
+          
+        // OTROS ESTADOS
+        case 'accredited':
+          redirectUrl = successUrl;
+          userMessage = 'Pago acreditado.';
+          break;
+        case 'authorized':
+          redirectUrl = successUrl;
+          userMessage = 'Pago autorizado.';
+          break;
+        case 'in_mediation':
+          userMessage = 'El pago está en mediación o disputa.';
+          break;
+        case 'cancelled':
+          userMessage = 'El pago fue cancelado.';
+          break;
+        case 'refunded':
+          userMessage = 'El pago fue devuelto.';
+          break;
+        case 'charged_back':
+          userMessage = 'El pago tuvo un contracargo.';
+          break;
+          
+        default:
+          userMessage = `El pago no pudo completarse (${statusDetail || status}).`;
+          break;
       }
-    }, 100);
-    
-    return () => clearTimeout(timer);
-  }, [isHydrated]);
+    }
 
-  if (!isHydrated) {
+    // Mostrar mensaje (puedes usar un toast, modal, etc)
+    alert(userMessage);
+
+    // Redirigir
+    if (typeof window !== 'undefined') {
+      window.location.href = redirectUrl;
+    }
+
+    if (onSuccessCallback) {
+      onSuccessCallback(data);
+    }
+  };
+  
+  // Overall loading state
+  const isLoading = !sdkReady || isLoadingPreference;
+
+  if (isLoading && !preferenceId) {
     return (
-      <div className={cn(styles.loading, className)} data-hydrating="true">
+      <div className={cn(styles.loading, className)} style={containerStyles}>
         <div className={styles.spinner}></div>
-        <p>Preparando formulario de pago...</p>
+        <p>{sdkError ? 'Error de configuración.' : 'Preparando formulario de pago...'}</p>
       </div>
     );
   }
 
-  if (loading && !productData) {
+  if (displayError && !isProcessing) {
     return (
-      <div className={cn(styles.loading, className)} data-hydrated="true">
-        <div className={styles.spinner}></div>
-        <p>Preparando formulario de pago...</p>
-      </div>
-    );
-  }
-
-  if (!productData && displayError) {
-    return (
-      <div className={cn(styles.errorContainer, className)} data-hydrated="true">
+      <div className={cn(styles.errorContainer, className)} style={containerStyles}>
         <p className={styles.errorMessage}>{displayError}</p>
-        {attemptCount < 5 && (
-          <button
-            className={styles.retryButton}
-            onClick={fetchProduct}
-            disabled={isFetchingProduct}
-          >
-            {isFetchingProduct ? 'Reintentando...' : 'Reintentar'}
-          </button>
-        )}
-        {attemptCount >= 5 && <p>Demasiados intentos fallidos.</p>}
       </div>
     );
   }
-
-  const price = productData?.price || 0;
-  const finalTotalAmount = totalAmount !== null ? 
-    totalAmount : 
-    price * sanitizedQuantity;
+  
+  const finalTotalAmount = totalAmount !== null 
+    ? totalAmount 
+    : (orderSummary && orderSummary.length > 0
+        ? orderSummary.reduce((sum, item) => sum + (item.price * item.quantity), 0)
+        : 0);
 
   return (
-    <div className={cn(styles.paymentFormContainer, className)} data-hydrated="true">
+    <div className={cn(styles.paymentFormContainer, className)} style={containerStyles}>
       {statusMsg && <p className={styles.statusMessage}>{statusMsg}</p>}
-      {displayError && !isFetchingProduct && <p className={styles.errorMessage}>{displayError}</p>}
+      {isProcessing && displayError && <p className={styles.errorMessage}>{displayError}</p>}
       
-      <ClientOnly fallback={
+      {preferenceId && sdkReady ? (
+        <Payment
+          key={`payment-${preferenceId}`}
+          initialization={{
+            amount: finalTotalAmount,
+            preferenceId: preferenceId,
+            mercadoPago: mercadoPagoSdkInstance || window.MercadoPago
+          }}
+          customization={paymentCustomization}
+          onSubmit={processPayment}
+          onReady={handleReady}
+          onError={handleError}
+          onSuccess={handleSuccess}
+        />
+      ) : (
         <div className={styles.loadingPreference}>
-          <div className={styles.spinner}></div>
-          <p>Preparando formulario de pago...</p>
+          {isLoadingPreference || !sdkReady ? (
+            <>
+              <div className={styles.spinner}></div>
+              <p>Cargando formulario de pago...</p>
+            </>
+          ) : (
+            <p>Error al preparar el formulario. Verifique la configuración.</p>
+          )}
         </div>
-      }>
-        {preferenceId ? (
-          <Payment
-            key={`payment-${preferenceId}`}
-            initialization={{
-              amount: finalTotalAmount,
-              preferenceId: preferenceId,
-              mercadoPago: publicKey
-            }}
-            customization={{
-              visual: { 
-                hideFormTitle: false, 
-                hidePaymentButton: false,
-                style: {
-                  theme: 'default',
-                  customVariables: {
-                    baseColor: '#F26F32',
-                    errorColor: '#e74c3c',      
-                    formBackgroundColor: '#FFFFFF', 
-                    inputBackgroundColor: '#FFFFFF',
-                    inputBorderColor: '#CCCCCC',
-                    buttonTextColor: '#FFFFFF',
-                    buttonBackground: '#F26F32', 
-                    elementsColor: '#F26F32',
-                    borderRadiusLarge: '4px',
-                    borderRadiusMedium: '4px',
-                    borderRadiusSmall: '4px'
-                  }
-                }
-              },
-              paymentMethods: { 
-                creditCard: 'all', 
-                debitCard: 'all' 
-              }
-            }}
-            onSubmit={handleSubmit}
-            onReady={handleReady}
-            onError={handleError}
-          />
-        ) : (
-          <div className={styles.loadingPreference}>
-            {isSubmitting ? (
-              <>
-                <div className={styles.spinner}></div>
-                <p>Generando formulario de pago...</p>
-              </>
-            ) : (
-              <p>Preparando formulario...</p>
-            )}
-          </div>
-        )}
-      </ClientOnly>
+      )}
+
+      {isProcessing && (
+        <div className={styles.redirectMessage}>
+          <p>
+            Si no eres redirigido automáticamente después del pago,{' '}
+            <a 
+              href={successUrl} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className={styles.redirectLink}
+            >
+              haz clic aquí
+            </a>
+          </p>
+        </div>
+      )}
     </div>
   );
 }
