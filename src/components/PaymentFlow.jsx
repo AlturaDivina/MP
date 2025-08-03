@@ -704,34 +704,10 @@ export default function PaymentFlow({
             <div className={styles['mp-add-to-cart-container']}>
               <button 
                 className={styles.addToCartButton}
-                onClick={() => {
-                  if (selectedProducts[0]?.product) {
-                    // Primero agregar al carrito con la cantidad actual
-                    addItem(selectedProducts[0].product, selectedProducts[0].quantity);
-                    
-                    // Visual feedback
-                    const button = document.activeElement;
-                    if (button) {
-                      const originalText = button.textContent;
-                      button.textContent = "¡Agregado!";
-                      button.style.backgroundColor = "#4CAF50"; // Green success color
-                      setTimeout(() => {
-                        button.textContent = originalText;
-                        button.style.backgroundColor = "";
-                      }, 800);
-                    }
-                    
-                    // Resetear la cantidad a 1 después de agregar al carrito
-                    const updatedProducts = [...selectedProducts];
-                    updatedProducts[0] = {
-                      ...updatedProducts[0],
-                      quantity: 1
-                    };
-                    setSelectedProducts(updatedProducts);
-                  }
-                }}
+                disabled={!isHydrated || !selectedProducts[0]?.product}
+                onClick={handleAddToCart}
               >
-                Agregar al Carrito
+                {!isHydrated ? 'Cargando...' : 'Agregar al Carrito'}
               </button>
             </div>
           </div>

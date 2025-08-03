@@ -1,227 +1,265 @@
 'use client';
+import { createContext, useContext, useReducer, useEffect, useState } from 'react';
+import { logInfo, logError } from '../lib/logger';
 
-import React, { createContext, useReducer, useEffect } from 'react';
-import { logInfo } from '../utils/logger';
+const CartContext = createContext();
 
-export const CartContext = createContext();
-
-// Acciones del carrito
-export const CART_ACTIONS = {
-  ADD_ITEM: 'ADD_ITEM',
-  REMOVE_ITEM: 'REMOVE_ITEM',
-  UPDATE_QUANTITY: 'UPDATE_QUANTITY',
-  CLEAR_CART: 'CLEAR_CART',
-  SYNC_CART_FROM_STORAGE: 'SYNC_CART_FROM_STORAGE', // Nueva acción
+const getSessionIdFromUrl = () => {
+  if (typeof window === 'undefined') return null;
+  const urlParams = new URLSearchParams(window.location.search);
+  let sessionId = urlParams.get('sessionId');
+  if (!sessionId) {
+    sessionId = sessionStorage.getItem('mp_global_session_id');
+  }
+  return sessionId || 'default_session';
 };
 
-// Estado inicial
-const initialState = {
-  items: [],
-  totalItems: 0,
-  totalAmount: 0,
-};
-
-// Reducer para manejar las acciones del carrito
-function cartReducer(state, action) {
+const cartReducer = (state, action) => {
   switch (action.type) {
-    case CART_ACTIONS.ADD_ITEM: {
-      const existingItemIndex = state.items.findIndex(
-        item => item.productId === action.payload.productId
-      );
+    case 'HYDRATE': {
+      return {
+        ...state,
+        items: action.payload.items || [],
+        totalAmount: action.payload.totalAmount || 0,
+        totalItems: action.payload.totalItems || 0,
+        isHydrated: true
+      };
+    }
 
-      let updatedItems;
-
-      if (existingItemIndex >= 0) {
-        // Si el producto ya existe, actualizamos la cantidad
-        updatedItems = state.items.map((item, index) => {
-          if (index === existingItemIndex) {
-            return {
-              ...item,
-              quantity: item.quantity + action.payload.quantity,
-            };
-          }
-          return item;
-        });
+    case 'ADD_ITEM': {
+      const { product, quantity = 1 } = action.payload;
+      const existingItem = state.items.find(item => item.productId === product.id);
+      
+      let newItems;
+      if (existingItem) {
+        newItems = state.items.map(item =>
+          item.productId === product.id
+            ? { ...item, quantity: item.quantity + quantity }
+            : item
+        );
       } else {
-        // Si es un producto nuevo, lo añadimos al carrito
-        updatedItems = [...state.items, action.payload];
+        newItems = [...state.items, {
+          productId: product.id,
+          name: product.name,
+          price: product.price,
+          quantity: quantity,
+          image: product.image,
+          product: product
+        }];
       }
 
-      // Calcular totales
-      const totalItems = updatedItems.reduce((total, item) => total + item.quantity, 0);
-      const totalAmount = updatedItems.reduce(
-        (total, item) => total + item.price * item.quantity,
-        0
-      );
+      const newTotalAmount = newItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+      const newTotalItems = newItems.reduce((sum, item) => sum + item.quantity, 0);
 
-      return {
+      const newState = {
         ...state,
-        items: updatedItems,
-        totalItems,
-        totalAmount,
+        items: newItems,
+        totalAmount: newTotalAmount,
+        totalItems: newTotalItems
       };
-    }
 
-    case CART_ACTIONS.REMOVE_ITEM: {
-      const updatedItems = state.items.filter(
-        item => item.productId !== action.payload.productId
-      );
-      
-      // Calcular totales
-      const totalItems = updatedItems.reduce((total, item) => total + item.quantity, 0);
-      const totalAmount = updatedItems.reduce(
-        (total, item) => total + item.price * item.quantity,
-        0
-      );
-
-      return {
-        ...state,
-        items: updatedItems,
-        totalItems,
-        totalAmount,
-      };
-    }
-
-    case CART_ACTIONS.UPDATE_QUANTITY: {
-      const { productId, quantity } = action.payload;
-      
-      // Si la cantidad es 0, eliminamos el item
-      if (quantity <= 0) {
-        return cartReducer(state, { 
-          type: CART_ACTIONS.REMOVE_ITEM, 
-          payload: { productId } 
-        });
-      }
-      
-      const updatedItems = state.items.map(item => {
-        if (item.productId === productId) {
-          return { ...item, quantity };
-        }
-        return item;
-      });
-      
-      // Calcular totales
-      const totalItems = updatedItems.reduce((total, item) => total + item.quantity, 0);
-      const totalAmount = updatedItems.reduce(
-        (total, item) => total + item.price * item.quantity,
-        0
-      );
-
-      return {
-        ...state,
-        items: updatedItems,
-        totalItems,
-        totalAmount,
-      };
-    }
-
-    case CART_ACTIONS.CLEAR_CART:
-      return initialState;
-
-    case CART_ACTIONS.SYNC_CART_FROM_STORAGE: {
-      if (typeof window !== 'undefined') {
-        const savedCart = sessionStorage.getItem('mp-cart');
-        if (savedCart) {
-          try {
-            // Solo actualiza si el estado es diferente para evitar bucles innecesarios
-            // Esta comparación es simple; podría necesitar ser más profunda si causa problemas.
-            if (JSON.stringify(state) !== savedCart) {
-              return JSON.parse(savedCart);
+      // Guardar inmediatamente en localStorage
+      if (typeof window !== 'undefined' && state.isHydrated) {
+        try {
+          const sessionId = getSessionIdFromUrl();
+          const storageKey = `mp_cart_${sessionId}`;
+          const cartData = {
+            items: newItems,
+            totalAmount: newTotalAmount,
+            totalItems: newTotalItems,
+            timestamp: new Date().toISOString()
+          };
+          localStorage.setItem(storageKey, JSON.stringify(cartData));
+          
+          // Disparar evento para notificar cambios
+          window.dispatchEvent(new CustomEvent('mp-cart-updated', {
+            detail: { 
+              action: 'add',
+              cartData,
+              sessionId
             }
-            return state; // No hay cambios necesarios
-          } catch (error) {
-            console.error("Error parsing cart from storage for sync:", error);
-            return initialState; // O devuelve el estado actual: return state;
-          }
+          }));
+          
+          logInfo('Producto agregado al carrito:', product.name);
+        } catch (error) {
+          logError('Error guardando en localStorage:', error);
         }
       }
-      return state; // O initialState si no hay nada guardado
+
+      return newState;
     }
+
+    case 'UPDATE_QUANTITY': {
+      const { productId, quantity } = action.payload;
+      const newItems = quantity <= 0
+        ? state.items.filter(item => item.productId !== productId)
+        : state.items.map(item =>
+            item.productId === productId ? { ...item, quantity } : item
+          );
+
+      const newTotalAmount = newItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+      const newTotalItems = newItems.reduce((sum, item) => sum + item.quantity, 0);
+
+      return {
+        ...state,
+        items: newItems,
+        totalAmount: newTotalAmount,
+        totalItems: newTotalItems
+      };
+    }
+
+    case 'REMOVE_ITEM': {
+      const newItems = state.items.filter(item => item.productId !== action.payload.productId);
+      const newTotalAmount = newItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+      const newTotalItems = newItems.reduce((sum, item) => sum + item.quantity, 0);
+
+      return {
+        ...state,
+        items: newItems,
+        totalAmount: newTotalAmount,
+        totalItems: newTotalItems
+      };
+    }
+
+    case 'CLEAR_CART':
+      return {
+        ...state,
+        items: [],
+        totalAmount: 0,
+        totalItems: 0
+      };
+
     default:
       return state;
   }
-}
+};
 
-export const CartProvider = ({ children }) => {
-  // Recuperar estado del carrito del localStorage
-  const getInitialState = () => {
-    if (typeof window !== 'undefined') {
-      const savedCart = sessionStorage.getItem('mp-cart');
+const initialState = {
+  items: [],
+  totalAmount: 0,
+  totalItems: 0,
+  isHydrated: false
+};
+
+export function CartProvider({ children }) {
+  const [state, dispatch] = useReducer(cartReducer, initialState);
+  const [mounted, setMounted] = useState(false);
+
+  // Marcar como montado
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Hidratar desde localStorage solo cuando esté montado
+  useEffect(() => {
+    if (!mounted) return;
+
+    const sessionId = getSessionIdFromUrl();
+    const storageKey = `mp_cart_${sessionId}`;
+    
+    try {
+      const savedCart = localStorage.getItem(storageKey);
       if (savedCart) {
-        try {
-          return JSON.parse(savedCart);
-        } catch (error) {
-          return initialState;
-        }
+        const parsedCart = JSON.parse(savedCart);
+        dispatch({
+          type: 'HYDRATE',
+          payload: {
+            items: parsedCart.items || [],
+            totalAmount: parsedCart.totalAmount || 0,
+            totalItems: parsedCart.totalItems || 0
+          }
+        });
+        logInfo('Carrito hidratado desde localStorage');
+      } else {
+        dispatch({
+          type: 'HYDRATE',
+          payload: { items: [], totalAmount: 0, totalItems: 0 }
+        });
       }
+    } catch (error) {
+      logError('Error hidratando carrito:', error);
+      dispatch({
+        type: 'HYDRATE',
+        payload: { items: [], totalAmount: 0, totalItems: 0 }
+      });
     }
-    return initialState;
-  };
+  }, [mounted]);
 
-  const [cartState, dispatch] = useReducer(cartReducer, getInitialState());
-
-  // Guardar el estado del carrito en localStorage cuando cambie
+  // Guardar cambios en localStorage (excepto durante hidratación inicial)
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      sessionStorage.setItem('mp-cart', JSON.stringify(cartState));
+    if (!mounted || !state.isHydrated) return;
+
+    const sessionId = getSessionIdFromUrl();
+    const storageKey = `mp_cart_${sessionId}`;
+    
+    try {
+      const cartData = {
+        items: state.items,
+        totalAmount: state.totalAmount,
+        totalItems: state.totalItems,
+        timestamp: new Date().toISOString()
+      };
+      localStorage.setItem(storageKey, JSON.stringify(cartData));
+    } catch (error) {
+      logError('Error guardando carrito:', error);
     }
-  }, [cartState]);
+  }, [state.items, state.totalAmount, state.totalItems, mounted, state.isHydrated]);
 
-  // NUEVO: useEffect para escuchar eventos de storage
-  useEffect(() => {
-    const handleStorageChange = (event) => {
-      if (event.key === 'mp-cart' && event.storageArea === sessionStorage) {
-        logInfo('StorageEvent detectado para mp-cart. Sincronizando carrito.');
-        dispatch({ type: CART_ACTIONS.SYNC_CART_FROM_STORAGE });
-      }
-    };
-
-    window.addEventListener('storage', handleStorageChange);
-
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
-    };
-  }, [dispatch]); // dispatch es estable y no necesita estar en las dependencias si se usa useCallback para las action creators
-
-  // Funciones para interactuar con el carrito
   const addItem = (product, quantity = 1) => {
-    dispatch({
-      type: CART_ACTIONS.ADD_ITEM,
-      payload: {
-        productId: product.id,
-        name: product.name,
-        price: product.price,
-        quantity,
-        product: product // Mantener referencia al objeto producto completo
-      },
-    });
-  };
-
-  const removeItem = (productId) => {
-    dispatch({
-      type: CART_ACTIONS.REMOVE_ITEM,
-      payload: { productId },
-    });
+    if (!state.isHydrated) {
+      logError('Intentando agregar producto antes de hidratación');
+      return;
+    }
+    dispatch({ type: 'ADD_ITEM', payload: { product, quantity } });
   };
 
   const updateQuantity = (productId, quantity) => {
-    dispatch({
-      type: CART_ACTIONS.UPDATE_QUANTITY,
-      payload: { productId, quantity },
-    });
+    dispatch({ type: 'UPDATE_QUANTITY', payload: { productId, quantity } });
+  };
+
+  const removeItem = (productId) => {
+    dispatch({ type: 'REMOVE_ITEM', payload: { productId } });
   };
 
   const clearCart = () => {
-    dispatch({ type: CART_ACTIONS.CLEAR_CART });
+    dispatch({ type: 'CLEAR_CART' });
   };
 
-  const value = {
-    ...cartState,
-    addItem,
-    removeItem,
-    updateQuantity,
-    clearCart,
-  };
+  // No renderizar hasta estar completamente hidratado
+  if (!mounted || !state.isHydrated) {
+    return (
+      <CartContext.Provider value={{
+        items: [],
+        totalAmount: 0,
+        totalItems: 0,
+        addItem: () => {},
+        updateQuantity: () => {},
+        removeItem: () => {},
+        clearCart: () => {},
+        isHydrated: false
+      }}>
+        {children}
+      </CartContext.Provider>
+    );
+  }
 
-  return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
+  return (
+    <CartContext.Provider value={{
+      ...state,
+      addItem,
+      updateQuantity,
+      removeItem,
+      clearCart
+    }}>
+      {children}
+    </CartContext.Provider>
+  );
+}
+
+export const useCart = () => {
+  const context = useContext(CartContext);
+  if (!context) {
+    throw new Error('useCart debe usarse dentro de CartProvider');
+  }
+  return context;
 };
