@@ -1171,6 +1171,9 @@
 }
 
 .mp-quantity-button {
+  -webkit-appearance: none; /* Remove Safari's default button style */
+  appearance: none;
+  line-height: 1; /* Avoid Safari's vertical offset */
   background: #f5f5f5;
   border: none;
   width: 40px;
