@@ -701,7 +701,7 @@ export default function PaymentFlow({
               </div>
             )}
             
-            <div className={styles['mp-add-to-cart-container']}>
+{/*             <div className={styles['mp-add-to-cart-container']}>
               <button 
                 className={styles.addToCartButton}
                 onClick={() => {
@@ -733,7 +733,44 @@ export default function PaymentFlow({
               >
                 Agregar al Carrito
               </button>
+            </div> */}
+
+
+            <div className={styles['mp-add-to-cart-container']}>
+              <button
+                className={styles.addToCartButton}
+                onClick={(e) => {
+                  if (selectedProducts[0]?.product) {
+                    // Agregar al carrito
+                    addItem(selectedProducts[0].product, selectedProducts[0].quantity);
+            
+                    // Visual feedback
+                    const button = e.currentTarget as HTMLButtonElement;
+                    const originalText = button.textContent || '';
+                    button.textContent = "¡Agregado!";
+                    button.style.backgroundColor = "#4CAF50";
+            
+                    setTimeout(() => {
+                      button.textContent = originalText;
+                      button.style.backgroundColor = "";
+                    }, 800);
+            
+                    // Reset cantidad a 1
+                    const updatedProducts = [...selectedProducts];
+                    updatedProducts[0] = {
+                      ...updatedProducts[0],
+                      quantity: 1
+                    };
+                    setSelectedProducts(updatedProducts);
+                  }
+                }}
+              >
+                Agregar al Carrito
+              </button>
             </div>
+
+
+            
           </div>
           
           <div className={styles['mp-total-price']}>
