@@ -388,7 +388,10 @@ export default function PaymentFlow({
               {selectedProduct.product && (
                 <div className={styles['mp-product-details']}>
                   <h3>{selectedProduct.product.name}</h3>
-                  <p className={styles['mp-product-description']}>{selectedProduct.product.description}</p>
+{/*                   <p className={styles['mp-product-description']}>{selectedProduct.product.description}</p> */}
+                  <p className={styles['mp-product-description']}>
+                    {String(selectedProduct.product.description ?? '')}
+                  </p>
                   <div className={styles['mp-product-price']}>
                     <span>Precio Total:</span>
                     <span className={styles['mp-price-value']}>
@@ -442,7 +445,9 @@ export default function PaymentFlow({
                 <span>{product.product.name}</span>
                 
                 <span>Descripción:</span>
-                <span>{product.product.description}</span>
+{/*                 <span>{product.product.description}</span> */}
+                <span>{String(product.product.description ?? '')}</span>
+
                 
                 <span>Precio Unitario:</span>
                 <span>${formatPrice(product.product.price)}</span>
@@ -491,7 +496,8 @@ export default function PaymentFlow({
             {confirmedOrder && confirmedOrder.products && confirmedOrder.products.map((order, index) => (
               <div key={index} className={styles['mp-summary-item']}>
                 <span>Producto:</span>
-                <span>{order.product && order.product.name || 'Producto desconocido'}</span> {/* Muestra el nombre */}
+{/*                 <span>{order.product && order.product.name || 'Producto desconocido'}</span> */}
+                <span>{String(order.product?.name ?? 'Producto desconocido')}</span>
                 <span>Precio unitario:</span>
                 <span>${order.product && formatPrice(order.product.price)}</span>
                 <span>Cantidad:</span>
