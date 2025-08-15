@@ -172,3 +172,12 @@ export async function generateReceiptPDF({
     throw error;
   }
 }
+
+/**
+ * Build Order PDF with detailed or simplified customer info
+ */
+/*
+export async function buildOrderPdf({ order, customer /* ...others */ /*}) {
+  // TODO: Implementar si se necesita. Por ahora, usar generateReceiptPDF.
+}
+*/

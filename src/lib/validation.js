@@ -172,3 +172,28 @@ export function validateProduct(product) {
   
   return true;
 }
+
+export function normalizeDisplayMode(mode) {
+  if (!mode) return 'full'
+  return mode === 'family/friends' ? 'familyFriends' : mode
+}
+
+export function validateCustomerByMode(mode, data) {
+  const m = normalizeDisplayMode(mode)
+  if (m !== 'familyFriends') {
+    // No validar para otros modos (mantiene full intacto)
+    return { valid: true, errors: {} }
+  }
+
+  const errors = {}
+  if (!data?.fullName || String(data.fullName).trim().length < 2) {
+    errors.fullName = 'Nombre completo es requerido'
+  }
+  if (!data?.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(data.email))) {
+    errors.email = 'Correo electrónico inválido'
+  }
+  if (!data?.phone || String(data.phone).trim().length < 5) {
+    errors.phone = 'Teléfono es requerido'
+  }
+  return { valid: Object.keys(errors).length === 0, errors }
+}

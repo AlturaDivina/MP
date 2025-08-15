@@ -6,7 +6,7 @@ import MercadoPagoProvider from '../components/MercadoPagoProvider'
 import CartIcon from '../components/CartIcon'; // Added
 import CartSidebar from '../components/CartSidebar'; // Added
 
-export default function Home() {
+export default function Home({ searchParams }) {
   const [params, setParams] = useState({});
   const [isCartOpen, setIsCartOpen] = useState(false);
 
@@ -22,9 +22,12 @@ export default function Home() {
     const finalPendingUrl = "https://alturadivina.com/proceso-de-compra";
     const finalFailureUrl = "https://alturadivina.com/error-de-compra";
 
-    const displayMode = urlParams.get('displayMode') || 'full';
-    const initialStep = urlParams.has('initialStep') ? parseInt(urlParams.get('initialStep'), 10) : undefined;
-    const cartIconColor = urlParams.get('cartIconColor') || '#333333'; // Agregar esto
+    const rawDisplayMode = urlParams.get('displayMode')
+    const displayMode = rawDisplayMode === 'family/friends' ? 'familyFriends' : (rawDisplayMode || 'full')
+
+    // Default initialStep to 1 if not provided
+    const initialStep = urlParams.has('initialStep') ? parseInt(urlParams.get('initialStep'), 10) : 1
+    const cartIconColor = urlParams.get('cartIconColor') || '#333333'
 
     setParams({
       hideTitle,
@@ -35,7 +38,7 @@ export default function Home() {
       failureUrl: finalFailureUrl,
       displayMode,
       initialStep,
-      cartIconColor, // Agregar esto
+      cartIconColor,
       apiBaseUrl: process.env.NEXT_PUBLIC_HOST_URL || 'http://localhost:3000'
     });
   }, []);

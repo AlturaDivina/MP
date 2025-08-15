@@ -5,32 +5,48 @@ import styles from '../styles/MercadoPagoProvider.module.css';
 import '../styles/mercadopago-globals.css'; 
 import { logInfo, logError } from '../utils/logger';
 import { sanitizeInput } from '../utils/sanitize';
+import { normalizeDisplayMode } from '../lib/validation';
 
 import { useMercadoPagoSdk } from '../hooks/useMercadoPagoSdk';
 import { useMercadoPagoPreference } from '../hooks/useMercadoPagoPreference';
 import { useMercadoPagoBrickSubmit } from '../hooks/useMercadoPagoBrickSubmit';
 
-export default function MercadoPagoProvider({
-  productId,
-  quantity = 1,
-  totalAmount = null,
-  orderSummary = null,
-  userData = null,
-  publicKey,
-  apiBaseUrl,
-  successUrl,
-  pendingUrl,
-  failureUrl,
-  onSuccess: onSuccessCallback = () => {},
-  onError: onErrorCallback = () => {},
-  className = '',
-  containerStyles = {},
-  hideTitle = false,
-}) {
+export default function MercadoPagoProvider(props) {
+  const {
+    productId,
+    quantity = 1,
+    totalAmount = null,
+    orderSummary = null,
+    userData,
+    publicKey,
+    apiBaseUrl,
+    successUrl,
+    pendingUrl,
+    failureUrl,
+    onSuccess: onSuccessCallback = () => {},
+    onError: onErrorCallback = () => {},
+    className = '',
+    containerStyles = {},
+    hideTitle = false,
+    displayMode: rawDisplayMode,
+  } = props
+
   const hostUrl = process.env.NEXT_PUBLIC_HOST_URL || 'http://localhost:3000';
+
+  const displayMode = normalizeDisplayMode(rawDisplayMode);
 
   const { sdkReady, sdkError, mercadoPagoSdkInstance } = useMercadoPagoSdk(publicKey);
   
+  // Mapear payer minimal si familyFriends
+  const payerMinimal =
+    displayMode === 'familyFriends'
+      ? {
+          name: userData?.fullName || '',
+          email: userData?.email || '',
+          phone: userData?.phone ? { number: String(userData.phone) } : undefined,
+        }
+      : undefined
+
   const { preferenceId, isLoadingPreference, preferenceError } = useMercadoPagoPreference({
     orderSummary,
     userData,
@@ -40,6 +56,8 @@ export default function MercadoPagoProvider({
     failureUrl,
     hostUrl,
     isSdkReady: sdkReady,
+    displayMode, // importante para backend
+    payerOverride: payerMinimal, // opcional para centralizar en hook
   });
 
   const { 

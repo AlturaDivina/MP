@@ -724,3 +724,51 @@ function getChargebackAlertTemplate({ paymentId, orderId, customerData, amount }
     </div>
   `;
 }
+
+// NUEVO: Construir email de pedido (incluye lógica para Family & Friends)
+export function buildOrderEmail({ order, customer, /* ...others */ }) {
+  const mode = (order?.displayMode || order?.metadata?.displayMode || 'full')
+  const isFF = mode === 'familyFriends'
+
+  const subjectPrefix = isFF ? '[Family & Friends] ' : ''
+  const subject = `${subjectPrefix}Confirmación de tu compra`
+
+  // Construir bloque de datos del cliente
+  const customerBlock = isFF
+    ? `
+      <h3>Datos del cliente (Family & Friends)</h3>
+      <p><strong>Nombre completo:</strong> ${customer?.fullName || customer?.full_name || ''}</p>
+      <p><strong>Email:</strong> ${customer?.email || ''}</p>
+      <p><strong>Teléfono:</strong> ${customer?.phone || ''}</p>
+    `
+    : /* bloque detallado existente */ buildFullCustomerBlock(customer)
+
+  return {
+    subject,
+    html: `
+      <!-- Contenido HTML existente -->
+      ${customerBlock}
+      <!-- Resto del contenido HTML -->
+    `,
+    // ...otros campos existentes...
+  }
+}
+
+// Función para construir bloque completo de datos del cliente
+function buildFullCustomerBlock(customer) {
+  // Fallback seguro si no tienes una implementación previa
+  const first = customer?.first_name || customer?.firstName || '';
+  const last = customer?.last_name || customer?.lastName || '';
+  const email = customer?.email || '';
+  const phone = customer?.phone || '';
+  const addr = customer?.address || {};
+  return `
+    <h3>Datos del cliente</h3>
+    <p><strong>Nombre:</strong> ${first} ${last}</p>
+    <p><strong>Email:</strong> ${email}</p>
+    <p><strong>Teléfono:</strong> ${phone}</p>
+    ${addr?.street_name ? `
+      <p><strong>Dirección:</strong> ${addr.street_name} ${addr.street_number || ''}, ${addr.city || ''}, ${addr.state || ''} ${addr.zip_code || ''}</p>` : ''
+    }
+  `;
+}

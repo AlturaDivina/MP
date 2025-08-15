@@ -1,9 +1,8 @@
 'use client';
-
-import { useState, useEffect, useCallback } from 'react';
-import styles from '../styles/PaymentFlow.module.css'; 
+import React, { useState, useEffect, useCallback } from 'react';
+import cn from 'classnames';
+import styles from '../styles/PaymentFlow.module.css';
 import MercadoPagoProvider from './MercadoPagoProvider';
-import { cn } from '../lib/utils';
 import { logInfo, logError, logWarn } from '../lib/logger';
 import PhoneInput from 'react-phone-input-2';
 import 'react-phone-input-2/lib/style.css';
@@ -14,6 +13,7 @@ import CartSidebar from './CartSidebar';
 import { useCustomerSave } from '../hooks/useCustomerSave';
 import ErrorMessage from './ErrorMessage';
 import { sanitizeName, sanitizeAddress, sanitizePhone, sanitizeEmail, sanitizeInput } from '../utils/security';
+import { normalizeDisplayMode, validateCustomerByMode } from '../lib/validation'
 
 // NUEVO: Constante para el fee de envío
 const SHIPPING_FEE = 200;
@@ -25,37 +25,24 @@ const formatPrice = (price) => {
   });
 };
 
-export default function PaymentFlow({
-  apiBaseUrl,
-  productsEndpoint = '/api/products',
-  mercadoPagoPublicKey,
-  PaymentProviderComponent = MercadoPagoProvider,
-  successUrl,
-  pendingUrl,
-  failureUrl,
-  onSuccess,
-  onError,
-  containerStyles = {},
-  hideTitle = false,
-  className = '',
-  initialProductId = null,
-  initialStep = 1,
-  displayMode = "full",
-  cartIconColor = "currentColor", // Nueva prop para el color del ícono del carrito
-}) {
-  if (!apiBaseUrl) {
+export default function PaymentFlow(props) {
+  const { displayMode: rawDisplayMode /*, ...existing props... */ } = props
+  const displayMode = normalizeDisplayMode(rawDisplayMode)
+  const isFamilyFriends = displayMode === 'familyFriends'
+  const [customer, setCustomer] = React.useState({ fullName: '', email: '', phone: '' })
+  if (!props.apiBaseUrl) {
     logError("PaymentFlow Error: 'apiBaseUrl' prop is required.");
     return <div className={styles['mp-error-container']}>Error de configuración: Falta apiBaseUrl.</div>;
   }
-  if (!mercadoPagoPublicKey) {
+  if (!props.mercadoPagoPublicKey) {
     logError("PaymentFlow Error: 'mercadoPagoPublicKey' prop is required.");
     return <div className={styles['mp-error-container']}>Error de configuración: Falta mercadoPagoPublicKey.</div>;
   }
-  if (!successUrl || !pendingUrl || !failureUrl) {
+  if (!props.successUrl || !props.pendingUrl || !props.failureUrl) {
     logError("PaymentFlow Error: 'successUrl', 'pendingUrl', and 'failureUrl' props are required.");
     return <div className={styles['mp-error-container']}>Error de configuración: Faltan URLs de redirección.</div>;
   }
-  if (!PaymentProviderComponent) {
+  if (!props.PaymentProviderComponent) {
     logError("PaymentFlow Error: 'PaymentProviderComponent' prop is required.");
     return <div className={styles['mp-error-container']}>Error de configuración: Falta PaymentProviderComponent.</div>;
   }
@@ -64,7 +51,7 @@ export default function PaymentFlow({
   const [selectedProducts, setSelectedProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [currentStep, setCurrentStep] = useState(initialStep);
+  const [currentStep, setCurrentStep] = useState(props.initialStep);
   const [confirmedOrder, setConfirmedOrder] = useState(null);
   const [userData, setUserData] = useState({
     email: '',
@@ -109,7 +96,7 @@ export default function PaymentFlow({
     const fetchProducts = async () => {
       try {
         setLoading(true);
-        const fullProductsUrl = `${apiBaseUrl.replace(/\/$/, '')}${productsEndpoint}`;
+        const fullProductsUrl = `${props.apiBaseUrl.replace(/\/$/, '')}${props.productsEndpoint}`;
         const response = await fetch(fullProductsUrl);
         if (!response.ok) {
           throw new Error('Error al cargar productos');
@@ -131,8 +118,8 @@ export default function PaymentFlow({
         } else if (data.length > 0) {
           // Si no hay productos en el carrito, inicializar con uno
           let initialProduct = data[0];
-          if (initialProductId) {
-            const foundProduct = data.find(p => p.id === initialProductId);
+          if (props.initialProductId) {
+            const foundProduct = data.find(p => p.id === props.initialProductId);
             if (foundProduct) {
               initialProduct = foundProduct;
             }
@@ -147,14 +134,14 @@ export default function PaymentFlow({
         }
       } catch (e) {
         setError(e.message);
-        if (onError) onError(e);
+        if (props.onError) props.onError(e);
       } finally {
         setLoading(false);
       }
     };
     
     fetchProducts();
-  }, [apiBaseUrl, productsEndpoint, onError, initialProductId, items]);
+  }, [props.apiBaseUrl, props.productsEndpoint, props.onError, props.initialProductId, items]);
   
   useEffect(() => {
     return () => {
@@ -165,8 +152,8 @@ export default function PaymentFlow({
   useEffect(() => {
     if (currentStep === 1 && confirmedOrder === null && selectedProducts.length === 0 && products.length > 0) {
       let initialProduct = products[0];
-      if (initialProductId) {
-        const foundProduct = products.find(p => p.id === initialProductId);
+      if (props.initialProductId) {
+        const foundProduct = products.find(p => p.id === props.initialProductId);
         if (foundProduct) {
           initialProduct = foundProduct;
         }
@@ -179,7 +166,7 @@ export default function PaymentFlow({
         }
       ]);
     }
-  }, [currentStep, confirmedOrder, selectedProducts.length, products, initialProductId]);
+  }, [currentStep, confirmedOrder, selectedProducts.length, products, props.initialProductId]);
 
   const getAvailableProducts = (currentIndex) => {
     const selectedIds = selectedProducts
@@ -311,26 +298,28 @@ export default function PaymentFlow({
   };
 
   const handleConfirmOrder = async () => {
-    // ✅ MEJORADO: Validaciones más específicas antes de proceder
-    if (!userData.isOver18) {
-      alert('🚫 Debes confirmar que eres mayor de 18 años para comprar productos con alcohol');
-      return;
-    }
+    // En FF saltar validaciones de mayoría de edad/términos/envío
+    if (!isFamilyFriends) {
+      if (!userData.isOver18) {
+        alert('🚫 Debes confirmar que eres mayor de 18 años para comprar productos con alcohol');
+        return;
+      }
 
-    if (!userData.acceptsAlcoholTerms) {
-      alert('✅ Debes aceptar los términos y condiciones para productos con alcohol');
-      return;
-    }
+      if (!userData.acceptsAlcoholTerms) {
+        alert('✅ Debes aceptar los términos y condiciones para productos con alcohol');
+        return;
+      }
 
-    if (!userData.acceptsShippingFee) {
-      alert('📦 Debes aceptar el cargo de envío para continuar');
-      return;
-    }
+      if (!userData.acceptsShippingFee) {
+        alert('📦 Debes aceptar el cargo de envío para continuar');
+        return;
+      }
 
-    // ✅ NUEVO: Validación adicional de edad calculada
-    if (userData.calculatedAge && userData.calculatedAge < 18) {
-      alert('🚫 Lo sentimos, debes ser mayor de 18 años para realizar esta compra. Tu edad calculada es ' + userData.calculatedAge + ' años.');
-      return;
+      // ✅ NUEVO: Validación adicional de edad calculada
+      if (userData.calculatedAge && userData.calculatedAge < 18) {
+        alert('🚫 Lo sentimos, debes ser mayor de 18 años para realizar esta compra. Tu edad calculada es ' + userData.calculatedAge + ' años.');
+        return;
+      }
     }
 
     // ✅ NUEVO: Validación de stock antes de proceder
@@ -403,8 +392,8 @@ export default function PaymentFlow({
   const handleCancel = () => {
     if (window.confirm('¿Seguro que deseas cancelar este pedido?')) {
       setCurrentStep(1);
-      const initialProduct = initialProductId 
-        ? products.find(product => product.id === initialProductId) || products[0]
+      const initialProduct = props.initialProductId 
+        ? products.find(product => product.id === props.initialProductId) || products[0]
         : products[0];
       setSelectedProducts(products.length > 0 
         ? [{ 
@@ -432,7 +421,7 @@ export default function PaymentFlow({
     // Limpiar carrito después de pago exitoso
     clearCart();
     
-    if (onSuccess) onSuccess(data);
+    if (props.onSuccess) props.onSuccess(data);
   };
 
   const handlePaymentError = (error) => {
@@ -465,27 +454,26 @@ export default function PaymentFlow({
       alert(userMessage);
     }
     
-    if (onError) onError(error);
+    if (props.onError) props.onError(error);
   };
 
   const renderPaymentProvider = () => {
-    if (!confirmedOrder || items.length === 0 || !mercadoPagoPublicKey) return null;
+    if (!confirmedOrder || items.length === 0 || !props.mercadoPagoPublicKey) return null;
 
     return (
-      <PaymentProviderComponent
+      <props.PaymentProviderComponent
         productId={items[0].productId}
         quantity={1}
         totalAmount={totalAmount}
-        publicKey={mercadoPagoPublicKey}
-        apiBaseUrl={apiBaseUrl}
-        successUrl={successUrl}
-        pendingUrl={pendingUrl}
-        failureUrl={failureUrl}
+        publicKey={props.mercadoPagoPublicKey}
+        apiBaseUrl={props.apiBaseUrl}
+        successUrl={props.successUrl}
+        pendingUrl={props.pendingUrl}
+        failureUrl={props.failureUrl}
         onSuccess={handlePaymentSuccess}
         onError={handlePaymentError}
         hideTitle={true}
         userData={confirmedOrder.userData}
-        // Use cart items for the order summary
         orderSummary={items.map(item => ({
           productId: item.productId,
           name: item.name,
@@ -493,7 +481,7 @@ export default function PaymentFlow({
           price: item.price,
           total: item.price * item.quantity
         }))}
-      
+        displayMode={displayMode}
       />
     );
   };
@@ -536,9 +524,18 @@ export default function PaymentFlow({
     }
   }, []);
 
+  // Keep currentStep in sync if prop changes (only when becomes valid)
+  useEffect(() => {
+    const next =
+      Number.isInteger(props.initialStep) && props.initialStep >= 1 && props.initialStep <= 4
+        ? props.initialStep
+        : 1
+    setCurrentStep(next)
+  }, [props.initialStep])
+
   if (loading) {
     return (
-      <div className={cn(styles['mp-container'], className)} style={containerStyles}>
+      <div className={cn(styles['mp-container'], props.className)} style={props.containerStyles}>
         <div className={styles['mp-loading']}>
           <div className={styles['mp-spinner']}></div>
           <p>Cargando productos...</p>
@@ -549,7 +546,7 @@ export default function PaymentFlow({
 
   if (error) {
     return (
-      <div className={cn(styles['mp-container'], className)} style={containerStyles}>
+      <div className={cn(styles['mp-container'], props.className)} style={props.containerStyles}>
         <div className={styles['mp-error-container']}>
           <h2>Error</h2>
           <p>{error}</p>
@@ -566,7 +563,7 @@ export default function PaymentFlow({
 
   if (products.length === 0) {
     return (
-      <div className={cn(styles['mp-container'], className)} style={containerStyles}>
+      <div className={cn(styles['mp-container'], props.className)} style={props.containerStyles}>
         <div className={styles['mp-empty-state']}>
           <h2>No hay productos disponibles</h2>
           <p>Vuelve a intentarlo más tarde o contacta con el administrador.</p>
@@ -577,12 +574,12 @@ export default function PaymentFlow({
 
   if (currentStep === 1) {
     return (
-      <div className={cn(styles['mp-container'], className)} style={containerStyles}>
+      <div className={cn(styles['mp-container'], props.className)} style={props.containerStyles}>
         <div className={styles['mp-header']}>
-          {!hideTitle && <h2 className={styles['mp-page-title']}>Selecciona un Producto</h2>}
+          {!props.hideTitle && <h2 className={styles['mp-page-title']}>Selecciona un Producto</h2>}
           {/* Solo muestra el CartIcon si es full o cartIconOnly, NUNCA en paymentFlowOnly */}
           {(displayMode === "full" || displayMode === "cartIconOnly") && (
-            <CartIcon onClick={() => setIsCartOpen(true)} color={cartIconColor} />
+            <CartIcon onClick={() => setIsCartOpen(true)} color={props.cartIconColor} />
           )}
         </div>
         
@@ -591,7 +588,7 @@ export default function PaymentFlow({
           <CartSidebar 
             isOpen={isCartOpen} 
             onClose={() => setIsCartOpen(false)} 
-            checkoutUrl={`${apiBaseUrl}/checkout`}
+            checkoutUrl={`${props.apiBaseUrl}/checkout`}
           />
         )}
         
@@ -807,314 +804,373 @@ export default function PaymentFlow({
 
   if (currentStep === 2) {
     return (
-      <div className={cn(styles['mp-container'], className)} style={containerStyles}>
+      <div className={cn(styles['mp-container'], props.className)} style={props.containerStyles}>
         <h2 className={styles['mp-page-title']}>DATOS DEL COMPRADOR</h2>
-        
+
         <div className={styles['mp-form-container']}>
-          <div className={styles['mp-form-section']}>
-            <h3 className={styles['mp-form-section-title']}>Información Personal</h3>
-            <p className={styles['mp-form-section-subtitle']}>Ingresa tus datos para completar la compra</p>
-            
-            <div className={styles['mp-form-group']}>
-              <label htmlFor="mp-email">EMAIL: <span className={styles['required']}>*</span></label>
-              <input
-                id="mp-email"
-                type="email"
-                value={userData.email}
-                onChange={(e) => handleSecureInputChange('email', e.target.value, 'email', 100)}
-                className={styles['mp-text-input']}
-                required
-              />
-            </div>
-            
-            <div className={styles['mp-form-row']}>
+          {isFamilyFriends ? (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault()
+                const { valid, errors } = validateCustomerByMode(displayMode, customer)
+                if (!valid) {
+                  alert(Object.values(errors).join('\n'))
+                  return
+                }
+                // Mapear a userData mínimo y avanzar
+                setUserData({
+                  fullName: customer.fullName,
+                  email: customer.email,
+                  phone: customer.phone,
+                })
+                setCurrentStep(3)
+              }}
+            >
               <div className={styles['mp-form-group']}>
-                <label htmlFor="mp-first-name">NOMBRE: <span className={styles['required']}>*</span></label>
+                <label>Nombre completo</label>
                 <input
-                  id="mp-first-name"
                   type="text"
-                  value={userData.first_name}
-                  onChange={(e) => handleSecureInputChange('first_name', e.target.value, 'name', 50)}
-                  className={styles['mp-text-input']}
                   required
+                  value={customer.fullName}
+                  onChange={(e) => setCustomer((c) => ({ ...c, fullName: e.target.value }))}
+                  className={styles['mp-text-input']}
                 />
+              </div>
+              <div className={styles['mp-form-group']}>
+                <label>Correo electrónico</label>
+                <input
+                  type="email"
+                  required
+                  value={customer.email}
+                  onChange={(e) => setCustomer((c) => ({ ...c, email: e.target.value }))}
+                  className={styles['mp-text-input']}
+                />
+              </div>
+              <div className={styles['mp-form-group']}>
+                <label>Teléfono</label>
+                <input
+                  type="tel"
+                  required
+                  value={customer.phone}
+                  onChange={(e) => setCustomer((c) => ({ ...c, phone: e.target.value }))}
+                  className={styles['mp-text-input']}
+                />
+              </div>
+
+              <div className={styles['mp-button-container']}>
+                <button className={cn(styles['mp-button'], styles['mp-primary'])} type="submit">
+                  Continuar
+                </button>
+              </div>
+            </form>
+          ) : (
+            <>
+              <div className={styles['mp-form-section']}>
+                <h3 className={styles['mp-form-section-title']}>Información Personal</h3>
+                <p className={styles['mp-form-section-subtitle']}>Ingresa tus datos para completar la compra</p>
+                
+                <div className={styles['mp-form-group']}>
+                  <label htmlFor="mp-email">EMAIL: <span className={styles['required']}>*</span></label>
+                  <input
+                    id="mp-email"
+                    type="email"
+                    value={userData.email}
+                    onChange={(e) => handleSecureInputChange('email', e.target.value, 'email', 100)}
+                    className={styles['mp-text-input']}
+                    required
+                  />
+                </div>
+                
+                <div className={styles['mp-form-row']}>
+                  <div className={styles['mp-form-group']}>
+                    <label htmlFor="mp-first-name">NOMBRE: <span className={styles['required']}>*</span></label>
+                    <input
+                      id="mp-first-name"
+                      type="text"
+                      value={userData.first_name}
+                      onChange={(e) => handleSecureInputChange('first_name', e.target.value, 'name', 50)}
+                      className={styles['mp-text-input']}
+                      required
+                    />
+                  </div>
+                  
+                  <div className={styles['mp-form-group']}>
+                    <label htmlFor="mp-last-name">APELLIDO: <span className={styles['required']}>*</span></label>
+                    <input
+                      id="mp-last-name"
+                      type="text"
+                      value={userData.last_name}
+                      onChange={(e) => handleSecureInputChange('last_name', e.target.value, 'name', 50)}
+                      className={styles['mp-text-input']}
+                      required
+                    />
+                  </div>
+                </div>
+                
+                {/* CAMBIO: Campo de fecha de nacimiento */}
+                <div className={styles['mp-form-group']}>
+                  <label htmlFor="mp-birth-date">FECHA DE NACIMIENTO: <span className={styles['required']}>*</span></label>
+                  <input
+                    id="mp-birth-date"
+                    type="date"
+                    value={userData.birth_date}
+                    onChange={(e) => setUserData({...userData, birth_date: e.target.value})}
+                    className={styles['mp-text-input']}
+                    max={new Date(new Date().setFullYear(new Date().getFullYear() - 18)).toISOString().split('T')[0]}
+                    required
+                  />
+                  <small className={styles['mp-form-help']}>Debes ser mayor de 18 años para realizar esta compra</small>
+                </div>
+                
+                <div className={styles['mp-form-group']}>
+                  <label htmlFor="mp-phone">TELÉFONO: <span className={styles['required']}>*</span></label>
+                  {typeof window !== 'undefined' && (
+                    <PhoneInput
+                      country={'mx'} // Default para México
+                      value={userData.phone || ''}
+                      onChange={(value) => {
+                        if (value) {
+                          setUserData({
+                            ...userData, 
+                            phone: value.toString()
+                          });
+                        }
+                      }}
+                      inputClass={styles['mp-phone-input']}
+                      containerClass={styles['mp-phone-container']}
+                      enableSearch={false}
+                      disableSearchIcon={true}
+                      preferredCountries={['mx', 'us', 'co', 'ar', 'pe', 'cl']}
+                      placeholder="Número de teléfono"
+                    />
+                  )}
+                  <small className={styles['mp-form-help']}>Incluya código de país y solo números</small>
+                </div>
+                
+                <div className={styles['mp-form-row']}>
+                  <div className={styles['mp-form-group']}>
+                    <label htmlFor="mp-id-type">TIPO DE DOCUMENTO:</label>
+                    <select
+                      id="mp-id-type"
+                      value={userData.identification?.type || 'INE'}
+                      onChange={(e) => setUserData({
+                        ...userData, 
+                        identification: {...(userData.identification || {}), type: e.target.value}
+                      })}
+                      className={styles['mp-select-input']}
+                    >
+                      <option value="INE">INE</option>
+                      <option value="RFC">RFC</option>
+                      <option value="PASAPORTE">PASAPORTE</option>
+                      <option value="OTRO">Otro</option>
+                    </select>
+                  </div>
+                  
+                  <div className={styles['mp-form-group']}>
+                    <label htmlFor="mp-id-number">NÚMERO DE DOCUMENTO:</label>
+                    <input
+                      id="mp-id-number"
+                      type="text"
+                      value={userData.identification?.number || ''}
+                      onChange={(e) => setUserData({
+                        ...userData, 
+                        identification: {...(userData.identification || {}), number: e.target.value}
+                      })}
+                      className={styles['mp-text-input']}
+                    />
+                  </div>
+                </div>
               </div>
               
-              <div className={styles['mp-form-group']}>
-                <label htmlFor="mp-last-name">APELLIDO: <span className={styles['required']}>*</span></label>
-                <input
-                  id="mp-last-name"
-                  type="text"
-                  value={userData.last_name}
-                  onChange={(e) => handleSecureInputChange('last_name', e.target.value, 'name', 50)}
-                  className={styles['mp-text-input']}
-                  required
-                />
-              </div>
-            </div>
-            
-            {/* CAMBIO: Campo de fecha de nacimiento */}
-            <div className={styles['mp-form-group']}>
-              <label htmlFor="mp-birth-date">FECHA DE NACIMIENTO: <span className={styles['required']}>*</span></label>
-              <input
-                id="mp-birth-date"
-                type="date"
-                value={userData.birth_date}
-                onChange={(e) => setUserData({...userData, birth_date: e.target.value})}
-                className={styles['mp-text-input']}
-                max={new Date(new Date().setFullYear(new Date().getFullYear() - 18)).toISOString().split('T')[0]}
-                required
-              />
-              <small className={styles['mp-form-help']}>Debes ser mayor de 18 años para realizar esta compra</small>
-            </div>
-            
-            <div className={styles['mp-form-group']}>
-              <label htmlFor="mp-phone">TELÉFONO: <span className={styles['required']}>*</span></label>
-              {typeof window !== 'undefined' && (
-                <PhoneInput
-                  country={'mx'} // Default para México
-                  value={userData.phone || ''}
-                  onChange={(value) => {
-                    if (value) {
+              <div className={styles['mp-form-section']}>
+                <h3 className={styles['mp-form-section-title']}>Dirección</h3>
+                <p className={styles['mp-form-section-subtitle']}>Todos los campos son obligatorios para envío del producto</p>
+                
+                <div className={styles['mp-form-group']}>
+                  <label htmlFor="mp-street">CALLE: <span className={styles['required']}>*</span></label>
+                  <input
+                    id="mp-street"
+                    type="text"
+                    value={userData.address?.street_name || ''}
+                    onChange={(e) => handleSecureInputChange('address.street_name', e.target.value, 'address', 200)}
+                    className={styles['mp-text-input']}
+                  />
+                </div>
+                
+                <div className={styles['mp-form-row']}>
+                  <div className={styles['mp-form-group']}>
+                    <label htmlFor="mp-street-number">NÚMERO: <span className={styles['required']}>*</span></label>
+                    <input
+                      id="mp-street-number"
+                      type="text"
+                      value={userData.address?.street_number || ''}
+                      onChange={(e) => {
+                        const streetNumber = e.target.value;
+                        setUserData({
+                          ...userData, 
+                          address: {...(userData.address || {}), street_number: streetNumber}
+                        });
+                      }}
+                      className={styles['mp-text-input']}
+                    />
+                  </div>
+                  
+                  <div className={styles['mp-form-group']}>
+                    <label htmlFor="mp-zip">CÓDIGO POSTAL: <span className={styles['required']}>*</span></label>
+                    <input
+                      id="mp-zip"
+                      type="text"
+                      value={userData.address?.zip_code || ''}
+                      onChange={(e) => setUserData({
+                        ...userData, 
+                        address: {...(userData.address || {}), zip_code: e.target.value}
+                      })}
+                      className={styles['mp-text-input']}
+                    />
+                  </div>
+                </div>
+                
+                <div className={styles['mp-form-group']}>
+                  <label htmlFor="mp-city">CIUDAD: <span className={styles['required']}>*</span></label>
+                  <input
+                    id="mp-city"
+                    type="text"
+                    value={userData.address?.city || ''}
+                    onChange={(e) => handleSecureInputChange('address.city', e.target.value, 'address', 100)}
+                    className={styles['mp-text-input']}
+                  />
+                </div>
+
+                {/* Nuevo campo para estado/provincia */}
+                <div className={styles['mp-form-group']}>
+                  <label htmlFor="mp-state">ESTADO/PROVINCIA: <span className={styles['required']}>*</span></label>
+                  <input
+                    id="mp-state"
+                    type="text"
+                    value={userData.address?.state || ''}
+                    onChange={(e) => handleSecureInputChange('address.state', e.target.value, 'address', 100)}
+                    className={styles['mp-text-input']}
+                  />
+                </div>
+
+                {/* Nuevo campo para país */}
+                <div className={styles['mp-form-group']}>
+                  <label htmlFor="mp-country">PAÍS: <span className={styles['required']}>*</span></label>
+                  <select
+                    id="mp-country"
+                    value={userData.address?.country || ''}
+                    onChange={(e) => {
+                      const countryValue = e.target.value;
                       setUserData({
                         ...userData, 
-                        phone: value.toString()
+                        address: {
+                          ...(userData.address || {}), 
+                          country: countryValue,
+                          customCountry: countryValue === 'Otro' ? '' : userData.address?.customCountry
+                        }
                       });
-                    }
-                  }}
-                  inputClass={styles['mp-phone-input']}
-                  containerClass={styles['mp-phone-container']}
-                  enableSearch={false}
-                  disableSearchIcon={true}
-                  preferredCountries={['mx', 'us', 'co', 'ar', 'pe', 'cl']}
-                  placeholder="Número de teléfono"
-                />
-              )}
-              <small className={styles['mp-form-help']}>Incluya código de país y solo números</small>
-            </div>
-            
-            <div className={styles['mp-form-row']}>
-              <div className={styles['mp-form-group']}>
-                <label htmlFor="mp-id-type">TIPO DE DOCUMENTO:</label>
-                <select
-                  id="mp-id-type"
-                  value={userData.identification?.type || 'INE'}
-                  onChange={(e) => setUserData({
-                    ...userData, 
-                    identification: {...(userData.identification || {}), type: e.target.value}
-                  })}
-                  className={styles['mp-select-input']}
+                    }}
+                    className={styles['mp-select-input']}
+                    required
+                  >
+                    <option value="">Seleccione un país</option>
+                    <option value="Mexico">México</option>
+                    <option value="Estados Unidos">Estados Unidos</option>
+                    <option value="Canada">Canadá</option>
+                    <option value="Colombia">Colombia</option>
+                    <option value="Argentina">Argentina</option>
+                    <option value="Peru">Perú</option>
+                    <option value="Chile">Chile</option>
+                    <option value="Otro">Otro</option>
+                  </select>
+                </div>
+
+                {/* Campo adicional que aparece cuando se selecciona "Otro" */}
+                {userData.address?.country === 'Otro' && (
+                  <div className={styles['mp-form-group']}>
+                    <label htmlFor="mp-custom-country">ESPECIFIQUE PAÍS: <span className={styles['required']}>*</span></label>
+                    <input
+                      id="mp-custom-country"
+                      type="text"
+                      value={userData.address?.customCountry || ''}
+                      onChange={(e) => handleSecureInputChange('address.customCountry', e.target.value, 'address', 100)}
+                      className={styles['mp-text-input']}
+                      placeholder="Escriba el nombre del país"
+                    />
+                  </div>
+                )}
+              </div>
+              
+              {/* NUEVO: Checkboxes de verificación */}
+              <div className={styles['mp-form-section']}>
+                <h3 className={styles['mp-form-section-title']}>Verificación de Edad y Términos</h3>
+                <p className={styles['mp-form-section-subtitle']}>Requerido para la venta de productos regulados</p>
+                
+                <div className={styles['mp-checkbox-group']}>
+                  <label className={styles['mp-checkbox-label']}>
+                    <input
+                      type="checkbox"
+                      checked={userData.isOver18}
+                      onChange={(e) => setUserData({...userData, isOver18: e.target.checked})}
+                      className={styles['mp-checkbox']}
+                      required
+                    />
+                    <span className={styles['mp-checkbox-text']}>
+                      Confirmo que soy mayor de 18 años y tengo la edad legal para comprar productos que pueden contener alcohol. 
+                      Entiendo que puedo ser requerido a mostrar identificación válida al momento de la entrega.
+                    </span>
+                  </label>
+                </div>
+                
+                <div className={styles['mp-checkbox-group']}>
+                  <label className={styles['mp-checkbox-label']}>
+                    <input
+                      type="checkbox"
+                      checked={userData.acceptsAlcoholTerms}
+                      onChange={(e) => setUserData({...userData, acceptsAlcoholTerms: e.target.checked})}
+                      className={styles['mp-checkbox']}
+                      required
+                    />
+                    <span className={styles['mp-checkbox-text']}>
+                      Acepto los términos y condiciones para la compra de productos que pueden contener alcohol. 
+                      Entiendo que está prohibida la venta a menores de edad y que el consumo responsable es mi responsabilidad.
+                    </span>
+                  </label>
+                </div>
+                
+                <div className={styles['mp-checkbox-group']}>
+                  <label className={styles['mp-checkbox-label']}>
+                    <input
+                      type="checkbox"
+                      checked={userData.acceptsShippingFee}
+                      onChange={(e) => setUserData({...userData, acceptsShippingFee: e.target.checked})}
+                      className={styles['mp-checkbox']}
+                      required
+                    />
+                    <span className={styles['mp-checkbox-text']}>
+                      Acepto el cargo fijo de envío de $200.00 MXN que se agregará a mi pedido. 
+                      Este cargo cubre el manejo especial y entrega segura de productos regulados.
+                    </span>
+                  </label>
+                </div>
+              </div>
+              
+              <div className={styles['mp-form-actions']}>
+                <button 
+                  className={cn(styles['mp-button'], styles['mp-secondary'])} 
+                  onClick={() => setCurrentStep(1)}
                 >
-                  <option value="INE">INE</option>
-                  <option value="RFC">RFC</option>
-                  <option value="PASAPORTE">PASAPORTE</option>
-                  <option value="OTRO">Otro</option>
-                </select>
+                  Volver
+                </button>
+                <button 
+                  className={cn(styles['mp-button'], styles['mp-primary'])} 
+                  onClick={handleContinueToOrderConfirmation}
+                >
+                  Continuar
+                </button>
               </div>
-              
-              <div className={styles['mp-form-group']}>
-                <label htmlFor="mp-id-number">NÚMERO DE DOCUMENTO:</label>
-                <input
-                  id="mp-id-number"
-                  type="text"
-                  value={userData.identification?.number || ''}
-                  onChange={(e) => setUserData({
-                    ...userData, 
-                    identification: {...(userData.identification || {}), number: e.target.value}
-                  })}
-                  className={styles['mp-text-input']}
-                />
-              </div>
-            </div>
-          </div>
-          
-          <div className={styles['mp-form-section']}>
-            <h3 className={styles['mp-form-section-title']}>Dirección</h3>
-            <p className={styles['mp-form-section-subtitle']}>Todos los campos son obligatorios para envío del producto</p>
-            
-            <div className={styles['mp-form-group']}>
-              <label htmlFor="mp-street">CALLE: <span className={styles['required']}>*</span></label>
-              <input
-                id="mp-street"
-                type="text"
-                value={userData.address?.street_name || ''}
-                onChange={(e) => handleSecureInputChange('address.street_name', e.target.value, 'address', 200)}
-                className={styles['mp-text-input']}
-              />
-            </div>
-            
-            <div className={styles['mp-form-row']}>
-              <div className={styles['mp-form-group']}>
-                <label htmlFor="mp-street-number">NÚMERO: <span className={styles['required']}>*</span></label>
-                <input
-                  id="mp-street-number"
-                  type="text"
-                  value={userData.address?.street_number || ''}
-                  onChange={(e) => {
-                    const streetNumber = e.target.value;
-                    setUserData({
-                      ...userData, 
-                      address: {...(userData.address || {}), street_number: streetNumber}
-                    });
-                  }}
-                  className={styles['mp-text-input']}
-                />
-              </div>
-              
-              <div className={styles['mp-form-group']}>
-                <label htmlFor="mp-zip">CÓDIGO POSTAL: <span className={styles['required']}>*</span></label>
-                <input
-                  id="mp-zip"
-                  type="text"
-                  value={userData.address?.zip_code || ''}
-                  onChange={(e) => setUserData({
-                    ...userData, 
-                    address: {...(userData.address || {}), zip_code: e.target.value}
-                  })}
-                  className={styles['mp-text-input']}
-                />
-              </div>
-            </div>
-            
-            <div className={styles['mp-form-group']}>
-              <label htmlFor="mp-city">CIUDAD: <span className={styles['required']}>*</span></label>
-              <input
-                id="mp-city"
-                type="text"
-                value={userData.address?.city || ''}
-                onChange={(e) => handleSecureInputChange('address.city', e.target.value, 'address', 100)}
-                className={styles['mp-text-input']}
-              />
-            </div>
-
-            {/* Nuevo campo para estado/provincia */}
-            <div className={styles['mp-form-group']}>
-              <label htmlFor="mp-state">ESTADO/PROVINCIA: <span className={styles['required']}>*</span></label>
-              <input
-                id="mp-state"
-                type="text"
-                value={userData.address?.state || ''}
-                onChange={(e) => handleSecureInputChange('address.state', e.target.value, 'address', 100)}
-                className={styles['mp-text-input']}
-              />
-            </div>
-
-            {/* Nuevo campo para país */}
-            <div className={styles['mp-form-group']}>
-              <label htmlFor="mp-country">PAÍS: <span className={styles['required']}>*</span></label>
-              <select
-                id="mp-country"
-                value={userData.address?.country || ''}
-                onChange={(e) => {
-                  const countryValue = e.target.value;
-                  setUserData({
-                    ...userData, 
-                    address: {
-                      ...(userData.address || {}), 
-                      country: countryValue,
-                      customCountry: countryValue === 'Otro' ? '' : userData.address?.customCountry
-                    }
-                  });
-                }}
-                className={styles['mp-select-input']}
-                required
-              >
-                <option value="">Seleccione un país</option>
-                <option value="Mexico">México</option>
-                <option value="Estados Unidos">Estados Unidos</option>
-                <option value="Canada">Canadá</option>
-                <option value="Colombia">Colombia</option>
-                <option value="Argentina">Argentina</option>
-                <option value="Peru">Perú</option>
-                <option value="Chile">Chile</option>
-                <option value="Otro">Otro</option>
-              </select>
-            </div>
-
-            {/* Campo adicional que aparece cuando se selecciona "Otro" */}
-            {userData.address?.country === 'Otro' && (
-              <div className={styles['mp-form-group']}>
-                <label htmlFor="mp-custom-country">ESPECIFIQUE PAÍS: <span className={styles['required']}>*</span></label>
-                <input
-                  id="mp-custom-country"
-                  type="text"
-                  value={userData.address?.customCountry || ''}
-                  onChange={(e) => handleSecureInputChange('address.customCountry', e.target.value, 'address', 100)}
-                  className={styles['mp-text-input']}
-                  placeholder="Escriba el nombre del país"
-                />
-              </div>
-            )}
-          </div>
-          
-          {/* NUEVO: Checkboxes de verificación */}
-          <div className={styles['mp-form-section']}>
-            <h3 className={styles['mp-form-section-title']}>Verificación de Edad y Términos</h3>
-            <p className={styles['mp-form-section-subtitle']}>Requerido para la venta de productos regulados</p>
-            
-            <div className={styles['mp-checkbox-group']}>
-              <label className={styles['mp-checkbox-label']}>
-                <input
-                  type="checkbox"
-                  checked={userData.isOver18}
-                  onChange={(e) => setUserData({...userData, isOver18: e.target.checked})}
-                  className={styles['mp-checkbox']}
-                  required
-                />
-                <span className={styles['mp-checkbox-text']}>
-                  Confirmo que soy mayor de 18 años y tengo la edad legal para comprar productos que pueden contener alcohol. 
-                  Entiendo que puedo ser requerido a mostrar identificación válida al momento de la entrega.
-                </span>
-              </label>
-            </div>
-            
-            <div className={styles['mp-checkbox-group']}>
-              <label className={styles['mp-checkbox-label']}>
-                <input
-                  type="checkbox"
-                  checked={userData.acceptsAlcoholTerms}
-                  onChange={(e) => setUserData({...userData, acceptsAlcoholTerms: e.target.checked})}
-                  className={styles['mp-checkbox']}
-                  required
-                />
-                <span className={styles['mp-checkbox-text']}>
-                  Acepto los términos y condiciones para la compra de productos que pueden contener alcohol. 
-                  Entiendo que está prohibida la venta a menores de edad y que el consumo responsable es mi responsabilidad.
-                </span>
-              </label>
-            </div>
-            
-            <div className={styles['mp-checkbox-group']}>
-              <label className={styles['mp-checkbox-label']}>
-                <input
-                  type="checkbox"
-                  checked={userData.acceptsShippingFee}
-                  onChange={(e) => setUserData({...userData, acceptsShippingFee: e.target.checked})}
-                  className={styles['mp-checkbox']}
-                  required
-                />
-                <span className={styles['mp-checkbox-text']}>
-                  Acepto el cargo fijo de envío de $200.00 MXN que se agregará a mi pedido. 
-                  Este cargo cubre el manejo especial y entrega segura de productos regulados.
-                </span>
-              </label>
-            </div>
-          </div>
-          
-          <div className={styles['mp-form-actions']}>
-            <button 
-              className={cn(styles['mp-button'], styles['mp-secondary'])} 
-              onClick={() => setCurrentStep(1)}
-            >
-              Volver
-            </button>
-            <button 
-              className={cn(styles['mp-button'], styles['mp-primary'])} 
-              onClick={handleContinueToOrderConfirmation}
-            >
-              Continuar
-            </button>
-          </div>
+            </>
+          )}
         </div>
       </div>
     );
@@ -1122,8 +1178,8 @@ export default function PaymentFlow({
 
   if (currentStep === 3) {
     return (
-      <div className={cn(styles['mp-container'], className)} style={containerStyles}>
-        {!hideTitle && <h2 className={styles['mp-page-title']}>Confirmar Pedido</h2>}
+      <div className={cn(styles['mp-container'], props.className)} style={props.containerStyles}>
+        {!props.hideTitle && <h2 className={styles['mp-page-title']}>Confirmar Pedido</h2>}
         {savingCustomer && (
           <div className={styles['mp-saving-notice']}>
             <p>Guardando información del cliente...</p>
@@ -1133,7 +1189,7 @@ export default function PaymentFlow({
           <div className={styles['mp-summary']}>
             <h3>Resumen del Pedido</h3>
             {items.map((item, index) => (
-              <div key={index} className={styles['mp-product-card']}>
+              <div key={`${item.productId}-${index}`} className={styles['mp-product-card']}>
                 <div className={styles['mp-product-card-header']}>
                   <h4>{item.name}</h4>
                 </div>
@@ -1175,7 +1231,12 @@ export default function PaymentFlow({
             <div className={styles['mp-buyer-info-card']}>
               <div className={styles['mp-buyer-info-row']}>
                 <span className={styles['mp-buyer-info-label']}>Nombre:</span>
-                <span className={styles['mp-buyer-info-value']}>{userData.first_name} {userData.last_name}</span>
+                <span className={styles['mp-buyer-info-value']}>
+                  {isFamilyFriends
+                    ? (userData.fullName || '')
+                    : `${userData.first_name} ${userData.last_name}`
+                }
+                </span>
               </div>
               <div className={styles['mp-buyer-info-row']}>
                 <span className={styles['mp-buyer-info-label']}>Email:</span>
@@ -1185,13 +1246,15 @@ export default function PaymentFlow({
                 <span className={styles['mp-buyer-info-label']}>Teléfono:</span>
                 <span className={styles['mp-buyer-info-value']}>{userData.phone}</span>
               </div>
-              {userData.birth_date && (
+
+              {!isFamilyFriends && userData.birth_date && (
                 <div className={styles['mp-buyer-info-row']}>
                   <span className={styles['mp-buyer-info-label']}>Fecha de nacimiento:</span>
                   <span className={styles['mp-buyer-info-value']}>{userData.birth_date}</span>
                 </div>
               )}
-              {userData.address && (
+
+              {!isFamilyFriends && userData.address && (
                 <>
                   <div className={styles['mp-buyer-info-row']}>
                     <span className={styles['mp-buyer-info-label']}>Dirección:</span>
@@ -1218,55 +1281,57 @@ export default function PaymentFlow({
             </div>
           </div>
 
-          {/* NUEVO: Checkboxes de confirmación */}
-          <div className={styles['mp-confirmations']}>
-            <h3>Confirmaciones Requeridas</h3>
-            
-            <div className={styles['mp-form-group']}>
-              <label className={styles['mp-checkbox-label']}>
-                <input
-                  type="checkbox"
-                  checked={userData.isOver18 || false}
-                  onChange={(e) => setUserData({...userData, isOver18: e.target.checked})}
-                  required
-                />
-                <span className={styles['mp-checkbox-text']}>
-                  Confirmo que soy mayor de 18 años y tengo la edad legal para comprar productos que pueden contener alcohol. 
-                  Entiendo que puedo ser requerido a mostrar identificación válida al momento de la entrega. <span className={styles['required']}>*</span>
-                </span>
-              </label>
-            </div>
+          {/* Confirmaciones: ocultar en FF */}
+          {!isFamilyFriends && (
+            <div className={styles['mp-confirmations']}>
+              <h3>Confirmaciones Requeridas</h3>
+              
+              <div className={styles['mp-form-group']}>
+                <label className={styles['mp-checkbox-label']}>
+                  <input
+                    type="checkbox"
+                    checked={userData.isOver18 || false}
+                    onChange={(e) => setUserData({...userData, isOver18: e.target.checked})}
+                    required
+                  />
+                  <span className={styles['mp-checkbox-text']}>
+                    Confirmo que soy mayor de 18 años y tengo la edad legal para comprar productos que pueden contener alcohol. 
+                    Entiendo que puedo ser requerido a mostrar identificación válida al momento de la entrega. <span className={styles['required']}>*</span>
+                  </span>
+                </label>
+              </div>
 
-            <div className={styles['mp-form-group']}>
-              <label className={styles['mp-checkbox-label']}>
-                <input
-                  type="checkbox"
-                  checked={userData.acceptsAlcoholTerms || false}
-                  onChange={(e) => setUserData({...userData, acceptsAlcoholTerms: e.target.checked})}
-                  required
-                />
-                <span className={styles['mp-checkbox-text']}>
-                  Acepto los términos y condiciones para la compra de productos que pueden contener alcohol. 
-                  Entiendo que está prohibida la venta a menores de edad y que el consumo responsable es mi responsabilidad. <span className={styles['required']}>*</span>
-                </span>
-              </label>
-            </div>
+              <div className={styles['mp-form-group']}>
+                <label className={styles['mp-checkbox-label']}>
+                  <input
+                    type="checkbox"
+                    checked={userData.acceptsAlcoholTerms || false}
+                    onChange={(e) => setUserData({...userData, acceptsAlcoholTerms: e.target.checked})}
+                    required
+                  />
+                  <span className={styles['mp-checkbox-text']}>
+                    Acepto los términos y condiciones para la compra de productos que pueden contener alcohol. 
+                    Entiendo que está prohibida la venta a menores de edad y que el consumo responsable es mi responsabilidad. <span className={styles['required']}>*</span>
+                  </span>
+                </label>
+              </div>
 
-            <div className={styles['mp-form-group']}>
-              <label className={styles['mp-checkbox-label']}>
-                <input
-                  type="checkbox"
-                  checked={userData.acceptsShippingFee || false}
-                  onChange={(e) => setUserData({...userData, acceptsShippingFee: e.target.checked})}
-                  required
-                />
-                <span className={styles['mp-checkbox-text']}>
-                  Acepto el cargo fijo de envío de $200.00 MXN que se agregará a mi pedido. 
-                  Este cargo cubre el manejo especial y entrega segura de productos regulados. <span className={styles['required']}>*</span>
-                </span>
-              </label>
+              <div className={styles['mp-form-group']}>
+                <label className={styles['mp-checkbox-label']}>
+                  <input
+                    type="checkbox"
+                    checked={userData.acceptsShippingFee || false}
+                    onChange={(e) => setUserData({...userData, acceptsShippingFee: e.target.checked})}
+                    required
+                  />
+                  <span className={styles['mp-checkbox-text']}>
+                    Acepto el cargo fijo de envío de $200.00 MXN que se agregará a mi pedido. 
+                    Este cargo cubre el manejo especial y entrega segura de productos regulados. <span className={styles['required']}>*</span>
+                  </span>
+                </label>
+              </div>
             </div>
-          </div>
+          )}
 
           <div className={styles['mp-confirmation-notice']}>
             <p className={styles['mp-notice-text']}>
@@ -1279,10 +1344,15 @@ export default function PaymentFlow({
               <button className={cn(styles['mp-button'], styles['mp-secondary'])} onClick={handleBack}>
                 Volver
               </button>
-              <button 
-                className={cn(styles['mp-button'], styles['mp-primary'])} 
-                onClick={handleConfirmOrder} 
-                disabled={savingCustomer || !userData.isOver18 || !userData.acceptsAlcoholTerms || !userData.acceptsShippingFee}
+              <button
+                className={cn(styles['mp-button'], styles['mp-primary'])}
+                onClick={handleConfirmOrder}
+                // Deshabilitar sólo en modo full
+                disabled={
+                  savingCustomer ||
+                  (!isFamilyFriends &&
+                    (!userData.isOver18 || !userData.acceptsAlcoholTerms || !userData.acceptsShippingFee))
+                }
               >
                 {savingCustomer ? 'Guardando...' : 'Confirmar y Proceder al Pago'}
               </button>
@@ -1295,13 +1365,13 @@ export default function PaymentFlow({
 
   if (currentStep === 4 && confirmedOrder) {
     return (
-      <div className={cn(styles['mp-container'], className)} style={containerStyles}>
-        {!hideTitle && <h2 className={styles['mp-page-title']}>Proceso de Pago</h2>}
+      <div className={cn(styles['mp-container'], props.className)} style={props.containerStyles}>
+        {!props.hideTitle && <h2 className={styles['mp-page-title']}>Proceso de Pago</h2>}
         <div className={styles['mp-payment-container']}>
           <div className={styles['mp-order-preview']}>
             <h3>Resumen del Pedido (Confirmado)</h3>
             {confirmedOrder && confirmedOrder.products && confirmedOrder.products.map((order, index) => (
-              <div key={index} className={styles['mp-product-card']}>
+              <div key={`${order.product?.id || order.productId}-${index}`} className={styles['mp-product-card']}>
                 <div className={styles['mp-product-card-header']}>
                   <h4>{order.product && order.product.name || 'Producto desconocido'}</h4>
                 </div>
@@ -1438,4 +1508,18 @@ export default function PaymentFlow({
   }
 
   return null;
+}
+
+// cerca del final del archivo o en util local:
+function mapUserDataForProvider(customer, displayMode) {
+  const mode = normalizeDisplayMode(displayMode)
+  if (mode === 'familyFriends') {
+    return {
+      fullName: customer.fullName,
+      email: customer.email,
+      phone: customer.phone,
+    }
+  }
+  // default (full)
+  return customer
 }

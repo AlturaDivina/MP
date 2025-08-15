@@ -1,31 +1,43 @@
 import { useState } from 'react';
-import { logInfo, logError } from '../utils/logger';
-
-// Reemplazar la implementación de saveCustomer con una versión que no haga inserciones
+import { logError } from '../utils/logger';
+import { normalizeDisplayMode } from '../lib/validation';
 
 export function useCustomerSave() {
   const [saving, setSaving] = useState(false);
 
-  const saveCustomer = async (customerData, orderData = null) => {
+  const saveCustomer = async (data, rawDisplayMode) => {
     if (saving) return { success: true, message: "Ya se está procesando" };
     setSaving(true);
-    
+
     try {
-      // No realizamos inserciones en la base de datos
-      // Solo registramos la intención para fines de logging
-      logInfo('Datos del cliente preparados para guardarse cuando se confirme el pago', { 
-        customerEmail: customerData.email,
-        hasOrderData: !!orderData
-      });
-      
-      // Simulamos un pequeño retraso para mantener UX consistente
-      await new Promise(resolve => setTimeout(resolve, 300));
-      
-      return { 
-        success: true, 
-        customerId: `temp_${Date.now()}`,
-        message: "Datos preparados para guardarse después de la confirmación del pago"
-      };
+      const displayMode = normalizeDisplayMode(rawDisplayMode)
+      const payload =
+        displayMode === 'familyFriends'
+          ? {
+              displayMode,
+              fullName: data.fullName,
+              email: data.email,
+              phone: data.phone,
+            }
+          : {
+              displayMode,
+              ...data,
+            }
+
+      const res = await fetch('/api/save-customer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        credentials: 'include',
+      })
+      if (!res.ok) {
+        const info = await res.json()
+        const error = new Error('Error al guardar los datos del cliente')
+        error.info = info
+        error.status = res.status
+        throw error
+      }
+      return await res.json()
     } catch (error) {
       logError('Error en useCustomerSave:', error);
       return { success: false, error: error.message };
@@ -34,8 +46,5 @@ export function useCustomerSave() {
     }
   };
 
-  return {
-    saveCustomer,
-    saving
-  };
+  return { saveCustomer, saving };
 }

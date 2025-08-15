@@ -79,8 +79,12 @@ const CartSidebar = ({ isOpen: externalIsOpen, onClose, checkoutUrl = '/checkout
           ) : (
             <>
               <div className={styles.cartItems}>
-                {items.map((item) => (
-                  <CartItem key={item.productId} item={item} />
+                {items.map((item, idx) => (
+                  <CartItem
+                    // Prefer a stable, unique key (productId + maybe variant if exists)
+                    key={`${item.productId}-${idx}`}
+                    item={item}
+                  />
                 ))}
               </div>
               

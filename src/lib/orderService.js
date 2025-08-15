@@ -1,5 +1,6 @@
 import { supabaseAdmin } from './supabase';
 import { logInfo, logError } from '../utils/logger';
+import { normalizeDisplayMode } from './validation';
 
 /**
  * Función simulada de guardar cliente - Ya no realiza inserciones
@@ -26,38 +27,25 @@ export async function saveCustomer(customerData) {
 }
 
 /**
- * Función simulada de crear pedido - Ya no realiza inserciones
+ * Función simulada de crear pedido - no realiza inserciones
  */
-export async function createOrder(orderData, customerData) {
+export async function createOrder(orderInput) {
   try {
-    // Llamar a saveCustomer que ahora solo genera un ID
-    const customerResult = await saveCustomer(customerData);
-    
-    if (!customerResult.success) {
-      throw new Error(customerResult.error || 'Error en función saveCustomer');
-    }
-    
-    const customerId = customerResult.customerId;
-    const orderId = orderData.orderId || orderData.id || `ORDER_${Date.now()}_${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
-    
-    // Log informativo
-    logInfo('Orden no guardada (desactivado):', { 
-      orderId, 
-      customerId,
-      items: (orderData.items || []).length
-    });
-    
+    const displayMode = normalizeDisplayMode(orderInput?.displayMode)
+    const orderId = orderInput?.orderId || orderInput?.id || `ORDER_${Date.now()}_${Math.random().toString(36).substr(2, 6).toUpperCase()}`
+    logInfo('Orden no guardada (desactivado):', {
+      orderId,
+      items: Array.isArray(orderInput?.items) ? orderInput.items.length : 0,
+      displayMode,
+    })
     return {
       success: true,
-      orderId: orderId,
-      customerId: customerId
-    };
+      orderId,
+      displayMode,
+    }
   } catch (error) {
-    logError('Error en función createOrder:', error);
-    return {
-      success: false,
-      error: error.message
-    };
+    logError('Error en función createOrder:', error)
+    return { success: false, error: error.message }
   }
 }
 

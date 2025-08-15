@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { logInfo, logError } from '../utils/logger';
+import { normalizeDisplayMode } from '../lib/validation'
 
 // Helper to get CSRF token if needed
 async function getCsrfToken() {
@@ -25,7 +26,10 @@ export function useMercadoPagoPreference({
   failureUrl,
   hostUrl, // e.g., process.env.NEXT_PUBLIC_HOST_URL
   isSdkReady,
+  displayMode: rawDisplayMode,       // <-- agregar
+  payerOverride = undefined,         // <-- agregar
 }) {
+  const displayMode = normalizeDisplayMode(rawDisplayMode)
   const [preferenceId, setPreferenceId] = useState(null);
   const [isLoadingPreference, setIsLoadingPreference] = useState(false);
   const [preferenceError, setPreferenceError] = useState(null);
@@ -43,111 +47,50 @@ export function useMercadoPagoPreference({
     setPreferenceId(null);
 
     try {
-      // Obtener token CSRF si es necesario
-      let csrfToken;
-      try {
-        csrfToken = await getCsrfToken();
-      } catch (e) {
-        // Continuar sin token en desarrollo
-        csrfToken = null;
-      }
-
-      // Asegurar que las URLs son absolutas
-      const baseUrl = hostUrl || window.location.origin;
-      
-      const ensureAbsoluteUrl = (url, fallback) => {
-        if (!url) return fallback;
-        return url.startsWith('http') ? url : `${baseUrl}${url.startsWith('/') ? url : `/${url}`}`;
-      };
-
+      // Asegurar URLs (ya estaban calculadas arriba)
       const finalSuccessUrl = successUrl || "https://alturadivina.com/confirmacion-de-compra";
       const finalFailureUrl = failureUrl || "https://alturadivina.com/error-de-compra";
       const finalPendingUrl = pendingUrl || "https://alturadivina.com/proceso-de-compra";
 
-      // Log para verificar
-      logInfo("Enviando solicitud de preferencia con URLs y datos de usuario:", {
-        finalSuccessUrl,
-        finalPendingUrl, 
-        finalFailureUrl,
-        hasUserData: !!userData
-      });
-      
-      if (orderSummary && orderSummary.length > 0) {
-        logInfo("Usando datos de múltiples productos desde orderSummary:", orderSummary);
+      // Derivar customer minimal solo si familyFriends
+      const customer =
+        displayMode === 'familyFriends' && userData
+          ? {
+              fullName: userData.fullName,
+              email: userData.email,
+              phone: userData.phone,
+            }
+          : undefined
+
+      const body = {
+        orderSummary,
+        payer: userData,                // se mantiene para compatibilidad
+        successUrl: finalSuccessUrl,
+        pendingUrl: finalPendingUrl,
+        failureUrl: finalFailureUrl,
+        displayMode,
+        customer,                       // solo si FF
+        payerOverride,                  // si viene del Provider
+        metadata: { displayMode },
       }
 
-      let payerData = null;
-      if (userData) {
-        payerData = JSON.parse(JSON.stringify(userData)); // Deep copy
-        
-        // Formatear teléfono para la API si existe
-        if (payerData.phone && typeof payerData.phone === 'string') {
-          const phoneStr = payerData.phone.replace(/\D/g, '');
-          if (phoneStr.length >= 3) {
-            payerData.phone = { 
-              area_code: phoneStr.substring(0, Math.min(3, phoneStr.length -1 ) || 2), 
-              number: phoneStr.substring(Math.min(3, phoneStr.length -1 ) || 2) 
-            };
-            logInfo("Teléfono formateado para API:", payerData.phone);
-          } else {
-            delete payerData.phone;
-          }
-        }
-        
-        // Asegurar que el número de calle sea string
-        if (payerData.address && payerData.address.street_number) {
-            payerData.address.street_number = String(payerData.address.street_number);
-        }
-      }
-      
-      // Ajustar la URL de API para desarrollo local si es necesario
       const adjustedApiUrl = apiBaseUrl.includes('localhost')
         ? apiBaseUrl.replace('https://', 'http://')
         : apiBaseUrl;
 
-      const headers = {
-        'Content-Type': 'application/json',
-      };
-      
-      if (csrfToken) {
-        headers['X-CSRF-Token'] = csrfToken;
-      }
-
       const response = await fetch(`${adjustedApiUrl.replace(/\/$/, '')}/api/create-preference`, {
         method: 'POST',
-        headers,
-        body: JSON.stringify({
-          orderSummary,
-          payer: payerData,
-          successUrl: finalSuccessUrl,
-          pendingUrl: finalPendingUrl,
-          failureUrl: finalFailureUrl,
-          // Add shipments information here
-          shipments: payerData && payerData.address ? {
-            mode: "custom",
-            cost: 0, // Set to actual shipping cost if you're charging for shipping
-            local_pickup: false,
-            receiver_address: {
-              zip_code: payerData.address.zip_code || "",
-              street_name: payerData.address.street_name || "",
-              street_number: payerData.address.street_number || "",
-              city_name: payerData.address.city || "",      // Mapeo correcto de city a city_name
-              state_name: payerData.address.state || "",    // Mapeo correcto de state a state_name
-              country_name: payerData.address.country // Usar país del frontend o default
-            }
-          } : undefined
-        }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
         credentials: 'include',
       });
 
       const data = await response.json();
-
       if (!response.ok) {
         logError("Error creando preferencia:", data);
         throw new Error(data.error || `Error del servidor: ${response.status}`);
       }
 
-      logInfo("Preferencia creada exitosamente:", data);
       setPreferenceId(data.preferenceId);
     } catch (error) {
       logError("Error creando preferencia en hook:", error);
@@ -163,11 +106,11 @@ export function useMercadoPagoPreference({
     successUrl,
     pendingUrl,
     failureUrl,
-    hostUrl,
+    displayMode,
+    payerOverride,
   ]);
 
   useEffect(() => {
-    // Crear preferencia automáticamente cuando se cumplan las condiciones
     if (isSdkReady && orderSummary && orderSummary.length > 0 && !preferenceId && !isLoadingPreference) {
       createPreference();
     }
