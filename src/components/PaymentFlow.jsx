@@ -590,14 +590,14 @@ export default function PaymentFlow(props) {
       <div className={cn(styles['mp-container'], props.className)} style={props.containerStyles}>
         <div className={styles['mp-header']}>
           {!props.hideTitle && <h2 className={styles['mp-page-title']}>Selecciona un Producto</h2>}
-          {/* Solo muestra el CartIcon si es full o cartIconOnly, NUNCA en paymentFlowOnly */}
-          {(displayMode === "full" || displayMode === "cartIconOnly") && (
+          {/* Solo muestra el CartIcon si es full, familyFriends o cartIconOnly, NUNCA en paymentFlowOnly */}
+          {(displayMode === "full" || displayMode === "familyFriends" || displayMode === "cartIconOnly") && (
             <CartIcon onClick={() => setIsCartOpen(true)} color={props.cartIconColor} />
           )}
         </div>
         
         {/* Solo muestra el CartSidebar si NO es paymentFlowOnly */}
-        {(displayMode === "full" || displayMode === "cartIconOnly") && (
+        {(displayMode === "full" || displayMode === "familyFriends" || displayMode === "cartIconOnly") && (
           <CartSidebar 
             isOpen={isCartOpen} 
             onClose={() => setIsCartOpen(false)} 
