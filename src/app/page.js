@@ -16,15 +16,21 @@ export default function Home({ searchParams }) {
     const hideTitle = urlParams.get('hideTitle') === 'true';
     const initialProductId = urlParams.get('initialProductId') || null;
     const publicKey = urlParams.get('publicKey') || process.env.NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY;
+    import { normalizeDisplayMode } from '../lib/validation'
 
     // URLs FIJAS DE ALTURA DIVINA
     const finalSuccessUrl = "https://alturadivina.com/confirmacion-de-compra";
     const finalPendingUrl = "https://alturadivina.com/proceso-de-compra";
     const finalFailureUrl = "https://alturadivina.com/error-de-compra";
 
-  const rawDisplayMode = urlParams.get('displayMode')
-  // Mapear variantes antiguas a 'family' para simplificar
-  const displayMode = (rawDisplayMode === 'family/friends' || rawDisplayMode === 'familyFriends') ? 'family' : (rawDisplayMode || 'family')
+    // Leer displayMode con alias comunes y normalizar a un valor conocido
+    const rawDisplayMode =
+      urlParams.get('displayMode') ||
+      urlParams.get('display_mode') ||
+      urlParams.get('mode') ||
+      null
+
+    const displayMode = normalizeDisplayMode(rawDisplayMode)
 
     // Default initialStep to 1 if not provided
     const initialStep = urlParams.has('initialStep') ? parseInt(urlParams.get('initialStep'), 10) : 1
