@@ -11,7 +11,7 @@ export async function POST(req) {
     const body = await req.json();
     const displayMode = normalizeDisplayMode(body?.displayMode);
 
-    if (displayMode === 'familyFriends') {
+  if (displayMode === 'family') {
       const customer = body?.customer || {};
       const { valid, errors } = validateCustomerByMode(displayMode, customer);
       if (!valid) {

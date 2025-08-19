@@ -12,7 +12,7 @@ export function useCustomerSave() {
     try {
       const displayMode = normalizeDisplayMode(rawDisplayMode)
       const payload =
-        displayMode === 'familyFriends'
+        displayMode === 'family'
           ? {
               displayMode,
               fullName: data.fullName,

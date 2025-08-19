@@ -59,7 +59,7 @@ async function processMercadoPagoPayment({
   displayMode, // <-- NUEVO
 }) {
   const mode = normalizeDisplayMode(displayMode);
-  const isFF = mode === 'familyFriends';
+  const isFF = mode === 'family';
 
   // 1. Validar y obtener productos desde la BD
   const preferenceItems = await Promise.all(orderItems.map(async (item) => {
@@ -120,7 +120,7 @@ async function processMercadoPagoPayment({
       throw new Error('Debes aceptar todos los términos y condiciones');
     }
   } else {
-    // familyFriends: forzar flags seguros
+  // family: forzar flags seguros
     payerData.isOver18 = true;
     payerData.acceptsAlcoholTerms = true;
     payerData.acceptsShippingFee = true;
@@ -178,18 +178,20 @@ async function processMercadoPagoPayment({
           zip_code: payerData.address.zip_code || ''
         } : {}
       },
-      shipments: payerData?.address ? {
-        mode: "custom",
-        cost: 0, // O el costo real de envío si lo cobras
-        receiver_address: {
-          street_name: payerData.address.street_name || '',
-          street_number: payerData.address.street_number ? String(payerData.address.street_number) : '',
-          zip_code: payerData.address.zip_code || '',
-          city_name: payerData.address.city_name || '',
-          state_name: payerData.address.state_name || '',
-          country_name: payerData.address.country_name || 'México'
-        }
-      } : undefined,
+      shipments: payerData?.address
+        ? {
+            mode: "custom",
+            cost: SHIPPING_FEE,
+            receiver_address: {
+              street_name: payerData.address.street_name || '',
+              street_number: payerData.address.street_number ? String(payerData.address.street_number) : '',
+              zip_code: payerData.address.zip_code || '',
+              city_name: payerData.address.city_name || '',
+              state_name: payerData.address.state_name || '',
+              country_name: payerData.address.country_name || 'México'
+            }
+          }
+        : undefined,
       back_urls: {
         success: payerData?.successUrl || "https://alturadivina.com/confirmacion-de-compra",
         failure: payerData?.failureUrl || "https://alturadivina.com/error-de-compra",
@@ -395,8 +397,8 @@ export async function POST(req) {
 
       itemsForPayment = secureOrderItems;
 
-      // ✅ CORRECCIÓN: Agregar el fee de envío al total calculado
-  const SHIPPING_FEE = displayMode === 'familyFriends' ? 0 : 200;
+    // ✅ CORRECCIÓN: Agregar el fee de envío al total calculado
+  const SHIPPING_FEE = displayMode === 'family' ? 0 : 200;
       const totalWithShipping = secureTotal + SHIPPING_FEE;
 
       // ✅ Comparar con el total enviado para detectar manipulación
@@ -491,18 +493,18 @@ export async function POST(req) {
       console.log(`🟢 CONSOLE DEBUG [${idempotencyKey}] ENTRANDO al bloque principal`);
       logInfo(`🟢 [${idempotencyKey}] ENTRANDO al bloque principal de payment request`);
 
-      // Preparar datos para registro en BD
-  const SHIPPING_FEE = displayMode === 'familyFriends' ? 0 : 200;
+    // Preparar datos para registro en BD
+  const SHIPPING_FEE = displayMode === 'family' ? 0 : 200;
       const subtotalProducts = itemsForPayment.reduce(
         (total, item) => total + parseFloat(item.price) * parseInt(item.quantity),
         0
       );
       const totalWithShipping = subtotalProducts + SHIPPING_FEE;
 
-      const customer_data =
-        displayMode === 'familyFriends'
-          ? {
-              display_mode: 'familyFriends',
+    const customer_data =
+      displayMode === 'family'
+      ? {
+              display_mode: 'family',
               first_name: userData?.first_name || '',
               last_name: userData?.last_name || '',
               email: userData?.email || '',
@@ -622,7 +624,7 @@ export async function POST(req) {
           itemsForPayment: itemsForPayment?.length || 0
         });
 
-  const SHIPPING_FEE_EMAIL = displayMode === 'familyFriends' ? 0 : 200;
+  const SHIPPING_FEE_EMAIL = displayMode === 'family' ? 0 : 200;
         const subtotalProductsEmail = itemsForPayment.reduce(
           (total, item) => total + parseFloat(item.price) * parseInt(item.quantity),
           0

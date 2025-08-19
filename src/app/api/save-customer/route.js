@@ -7,7 +7,7 @@ export async function POST(req) {
     const body = await req.json();
     const displayMode = normalizeDisplayMode(body?.displayMode);
 
-    if (displayMode === 'familyFriends') {
+  if (displayMode === 'family') {
       const customer = { fullName: body.fullName, email: body.email, phone: body.phone };
       const { valid, errors } = validateCustomerByMode(displayMode, customer);
       if (!valid) {
@@ -24,7 +24,7 @@ export async function POST(req) {
         full_name: customer.fullName || null,
         email: customer.email || null,
         phone: customer.phone || null,
-        display_mode: 'familyFriends',
+  display_mode: 'family',
       };
 
       const { data, error } = await supabase
@@ -33,7 +33,7 @@ export async function POST(req) {
         .select();
 
       if (error) {
-        logError('save-customer familyFriends error', error);
+        logError('save-customer family mode error', error);
         return new Response(JSON.stringify({ error: 'DB error' }), { status: 500 });
       }
       return new Response(JSON.stringify({ ok: true, customer: data?.[0] }), { status: 200 });

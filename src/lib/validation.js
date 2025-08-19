@@ -185,9 +185,11 @@ export function normalizeDisplayMode(mode) {
     'payment-flow-only': 'paymentFlowOnly',
     sidebaronly: 'sidebarOnly',
     'sidebar-only': 'sidebarOnly',
-    familyfriends: 'familyFriends',
-    'family-friends': 'familyFriends',
-    ff: 'familyFriends',
+    // Simplificado: usar "family" como clave única
+    family: 'family',
+    familyfriends: 'family',
+    'family-friends': 'family',
+    ff: 'family',
   };
 
   return map[m] || 'full';
@@ -195,7 +197,7 @@ export function normalizeDisplayMode(mode) {
 
 export function validateCustomerByMode(mode, data) {
   const m = normalizeDisplayMode(mode)
-  if (m !== 'familyFriends') {
+  if (m !== 'family') {
     // No validar para otros modos (mantiene full intacto)
     return { valid: true, errors: {} }
   }

@@ -22,8 +22,9 @@ export default function Home({ searchParams }) {
     const finalPendingUrl = "https://alturadivina.com/proceso-de-compra";
     const finalFailureUrl = "https://alturadivina.com/error-de-compra";
 
-    const rawDisplayMode = urlParams.get('displayMode')
-    const displayMode = rawDisplayMode === 'family/friends' ? 'familyFriends' : (rawDisplayMode || 'full')
+  const rawDisplayMode = urlParams.get('displayMode')
+  // Mapear variantes antiguas a 'family' para simplificar
+  const displayMode = (rawDisplayMode === 'family/friends' || rawDisplayMode === 'familyFriends') ? 'family' : (rawDisplayMode || 'full')
 
     // Default initialStep to 1 if not provided
     const initialStep = urlParams.has('initialStep') ? parseInt(urlParams.get('initialStep'), 10) : 1

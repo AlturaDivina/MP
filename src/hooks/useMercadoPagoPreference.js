@@ -52,9 +52,9 @@ export function useMercadoPagoPreference({
       const finalFailureUrl = failureUrl || "https://alturadivina.com/error-de-compra";
       const finalPendingUrl = pendingUrl || "https://alturadivina.com/proceso-de-compra";
 
-      // Derivar customer minimal solo si familyFriends
+  // Derivar customer minimal solo si family
       const customer =
-        displayMode === 'familyFriends' && userData
+            displayMode === 'family' && userData
           ? {
               first_name: userData.first_name || userData.fullName,
               last_name: userData.last_name || '',

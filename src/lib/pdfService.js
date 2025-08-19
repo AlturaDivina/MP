@@ -47,7 +47,7 @@ export async function generateReceiptPDF({
       color: rgb(0, 0, 0),
     });
     // Badge Family & Friends
-    if (displayMode === 'familyFriends') {
+  if (displayMode === 'family') {
       page.drawText('[Family & Friends]', {
         x: 220,
         y: yPosition,

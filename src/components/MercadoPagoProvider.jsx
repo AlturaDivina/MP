@@ -39,7 +39,7 @@ export default function MercadoPagoProvider(props) {
   const { sdkReady, sdkError, mercadoPagoSdkInstance } = useMercadoPagoSdk(publicKey);
 
   const payerMinimal =
-    displayMode === 'familyFriends'
+    displayMode === 'family'
       ? {
           name: (userData?.first_name || userData?.fullName || '').toString(),
           email: userData?.email || '',

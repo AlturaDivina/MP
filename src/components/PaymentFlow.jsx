@@ -28,7 +28,7 @@ const formatPrice = (price) => {
 export default function PaymentFlow(props) {
   const { displayMode: rawDisplayMode /*, ...existing props... */ } = props
   const displayMode = normalizeDisplayMode(rawDisplayMode)
-  const isFamilyFriends = displayMode === 'familyFriends'
+  const isFamilyFriends = displayMode === 'family'
   const [customer, setCustomer] = React.useState({ fullName: '', first_name: '', last_name: '', email: '', phone: '' })
   if (!props.apiBaseUrl) {
     logError("PaymentFlow Error: 'apiBaseUrl' prop is required.");
@@ -590,14 +590,14 @@ export default function PaymentFlow(props) {
       <div className={cn(styles['mp-container'], props.className)} style={props.containerStyles}>
         <div className={styles['mp-header']}>
           {!props.hideTitle && <h2 className={styles['mp-page-title']}>Selecciona un Producto</h2>}
-          {/* Solo muestra el CartIcon si es full, familyFriends o cartIconOnly, NUNCA en paymentFlowOnly */}
-          {(displayMode === "full" || displayMode === "familyFriends" || displayMode === "cartIconOnly") && (
+          {/* Solo muestra el CartIcon si es full, family o cartIconOnly, NUNCA en paymentFlowOnly */}
+          {(displayMode === "full" || displayMode === "family" || displayMode === "cartIconOnly") && (
             <CartIcon onClick={() => setIsCartOpen(true)} color={props.cartIconColor} />
           )}
         </div>
         
         {/* Solo muestra el CartSidebar si NO es paymentFlowOnly */}
-        {(displayMode === "full" || displayMode === "familyFriends" || displayMode === "cartIconOnly") && (
+  {(displayMode === "full" || displayMode === "family" || displayMode === "cartIconOnly") && (
           <CartSidebar 
             isOpen={isCartOpen} 
             onClose={() => setIsCartOpen(false)} 
@@ -1561,7 +1561,7 @@ export default function PaymentFlow(props) {
 // cerca del final del archivo o en util local:
 function mapUserDataForProvider(customer, displayMode) {
   const mode = normalizeDisplayMode(displayMode)
-  if (mode === 'familyFriends') {
+  if (mode === 'family') {
     return {
       fullName: customer.fullName,
       email: customer.email,

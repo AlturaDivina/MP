@@ -71,7 +71,7 @@ export function useMercadoPagoBrickSubmit({
           : 0);
 
       // CRÍTICO: Sumar shipping fee al monto final antes de enviarlo al backend
-  const SHIPPING_FEE = (displayMode === 'familyFriends') ? 0 : 200;
+  const SHIPPING_FEE = (displayMode === 'family') ? 0 : 200;
   const totalWithShipping = finalAmount + SHIPPING_FEE;
 
       const backendPayload = {
@@ -85,7 +85,7 @@ export function useMercadoPagoBrickSubmit({
         userData: userData,
         sessionToken: await getUserSessionToken(),
         idempotencyKey: uuidv4(),
-        displayMode, // ✅ send mode so the API can relax validations for familyFriends
+  displayMode, // ✅ send mode so the API can relax validations for family
       };
 
       logInfo("Payload enviado a /api/process-payment:", backendPayload);

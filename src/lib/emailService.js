@@ -216,7 +216,7 @@ function getCustomerEmailTemplate({ orderId, isApproved, customerName, orderData
   const items = orderData.items || [];
   const totalAmount = orderData.total_amount || 0;
   const mode = orderData?.displayMode || orderData?.metadata?.displayMode || 'full';
-  const isFF = mode === 'familyFriends';
+  const isFF = mode === 'family';
   
   // Generar HTML de productos
   const itemsHtml = items.map(item => `
@@ -341,7 +341,7 @@ function getLogisticsEmailTemplate({ orderId, isApproved, orderData }) {
   const items = orderData.items || [];
   const totalAmount = orderData.total_amount || 0;
   const mode = orderData?.displayMode || orderData?.metadata?.displayMode || 'full';
-  const isFF = mode === 'familyFriends';
+  const isFF = mode === 'family';
   
   // Formatear productos para el email
   const productsHtml = items.map(item => 
@@ -737,7 +737,7 @@ function getChargebackAlertTemplate({ paymentId, orderId, customerData, amount }
 // NUEVO: Construir email de pedido (incluye lógica para Family & Friends)
 export function buildOrderEmail({ order, customer, /* ...others */ }) {
   const mode = (order?.displayMode || order?.metadata?.displayMode || 'full')
-  const isFF = mode === 'familyFriends'
+  const isFF = mode === 'family'
 
   const subjectPrefix = isFF ? '[Family & Friends] ' : ''
   const subject = `${subjectPrefix}Confirmación de tu compra`
