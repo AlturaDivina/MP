@@ -174,8 +174,23 @@ export function validateProduct(product) {
 }
 
 export function normalizeDisplayMode(mode) {
-  if (!mode) return 'full'
-  return mode === 'family/friends' ? 'familyFriends' : mode
+  if (!mode) return 'full';
+  const m = String(mode).trim().toLowerCase();
+
+  const map = {
+    full: 'full',
+    carticononly: 'cartIconOnly',
+    'cart-icon-only': 'cartIconOnly',
+    paymentflowonly: 'paymentFlowOnly',
+    'payment-flow-only': 'paymentFlowOnly',
+    sidebaronly: 'sidebarOnly',
+    'sidebar-only': 'sidebarOnly',
+    familyfriends: 'familyFriends',
+    'family-friends': 'familyFriends',
+    ff: 'familyFriends',
+  };
+
+  return map[m] || 'full';
 }
 
 export function validateCustomerByMode(mode, data) {
