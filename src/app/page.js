@@ -24,7 +24,7 @@ export default function Home({ searchParams }) {
 
   const rawDisplayMode = urlParams.get('displayMode')
   // Mapear variantes antiguas a 'family' para simplificar
-  const displayMode = (rawDisplayMode === 'family/friends' || rawDisplayMode === 'familyFriends') ? 'family' : (rawDisplayMode || 'full')
+  const displayMode = (rawDisplayMode === 'family/friends' || rawDisplayMode === 'familyFriends') ? 'family' : (rawDisplayMode || 'family')
 
     // Default initialStep to 1 if not provided
     const initialStep = urlParams.has('initialStep') ? parseInt(urlParams.get('initialStep'), 10) : 1
