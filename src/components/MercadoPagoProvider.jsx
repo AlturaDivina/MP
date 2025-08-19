@@ -35,9 +35,9 @@ export default function MercadoPagoProvider(props) {
 
   const displayMode = normalizeDisplayMode(rawDisplayMode);
 
+  // ✅ Restore SDK state (needed by preference hook, UI and <Payment/>)
   const { sdkReady, sdkError, mercadoPagoSdkInstance } = useMercadoPagoSdk(publicKey);
-  
-  // Mapear payer minimal si familyFriends
+
   const payerMinimal =
     displayMode === 'familyFriends'
       ? {
@@ -56,8 +56,8 @@ export default function MercadoPagoProvider(props) {
     failureUrl,
     hostUrl,
     isSdkReady: sdkReady,
-    displayMode, // importante para backend
-    payerOverride: payerMinimal, // opcional para centralizar en hook
+    displayMode,
+    payerOverride: payerMinimal,
   });
 
   const { 
@@ -70,14 +70,15 @@ export default function MercadoPagoProvider(props) {
     orderSummary,
     productId,
     quantity,
-    totalAmount: totalAmount !== null ? totalAmount : (orderSummary ? orderSummary.reduce((sum, item) => sum + item.price * item.quantity, 0) : 0),
+    totalAmount,
     userData,
     onSuccess: onSuccessCallback,
     onError: onErrorCallback,
     successUrl,
     pendingUrl,
     failureUrl,
-    hostUrl,
+    hostUrl: typeof window !== 'undefined' ? window.location.origin : undefined,
+    displayMode,
   });
 
   const [displayError, setDisplayError] = useState(null);

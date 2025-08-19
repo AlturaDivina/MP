@@ -27,17 +27,18 @@ async function getUserSessionToken() {
 
 export function useMercadoPagoBrickSubmit({
   apiBaseUrl,
-  orderSummary, // For multiple items
-  productId,    // For single item
-  quantity,     // For single item
-  totalAmount,  // Can be pre-calculated or derived
+  orderSummary,
+  productId,
+  quantity,
+  totalAmount,
   userData,
-  onSuccess,    // Callback from parent
-  onError,      // Callback from parent
-  successUrl,   // Redirect URL
-  pendingUrl,   // Redirect URL
-  failureUrl,   // Redirect URL
+  onSuccess,
+  onError,
+  successUrl,
+  pendingUrl,
+  failureUrl,
   hostUrl,
+  displayMode, // <-- NUEVO
 }) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingError, setProcessingError] = useState(null);
@@ -80,10 +81,11 @@ export function useMercadoPagoBrickSubmit({
         orderSummary: orderSummary,
         productId: !orderSummary ? productId : null,
         quantity: !orderSummary ? quantity : null,
-        totalAmount: totalWithShipping, // CAMBIO: enviar monto con fee incluido
+        totalAmount: totalWithShipping,
         userData: userData,
         sessionToken: await getUserSessionToken(),
         idempotencyKey: uuidv4(),
+        displayMode, // ✅ send mode so the API can relax validations for familyFriends
       };
 
       logInfo("Payload enviado a /api/process-payment:", backendPayload);
@@ -269,6 +271,45 @@ export function useMercadoPagoBrickSubmit({
       setIsProcessing(false);
     }
   };
+
+  async function submitPayment({ token, paymentMethodId, issuerId, installments }) {
+    try {
+      // ...existing code to build payload...
+      const payload = {
+        formData: {
+          token,
+          paymentMethodId,
+          issuerId,
+          installments,
+        },
+        isMultipleOrder: Array.isArray(orderSummary) && orderSummary.length > 0,
+        orderSummary: orderSummary || null,
+        productId: productId || null,
+        quantity: quantity || 1,
+        totalAmount,
+        userData,
+        successUrl,
+        pendingUrl,
+        failureUrl,
+        hostUrl,
+        displayMode, // <-- CRÍTICO: que llegue al backend
+      };
+
+      const res = await fetch(`${apiBaseUrl.replace(/\/$/, '')}/api/process-payment`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Idempotency-Key': crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2),
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+      // ...existing code...
+    } catch (error) {
+      // ...existing code...
+    }
+  }
 
   return { handleSubmit, isProcessing, processingError, statusMsg };
 }

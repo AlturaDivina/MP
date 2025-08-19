@@ -836,6 +836,7 @@ export default function PaymentFlow(props) {
                   className={styles['mp-text-input']}
                 />
               </div>
+
               <div className={styles['mp-form-group']}>
                 <label>Correo electrónico</label>
                 <input
@@ -846,15 +847,28 @@ export default function PaymentFlow(props) {
                   className={styles['mp-text-input']}
                 />
               </div>
+
+              {/* CAMBIO: usar el mismo componente PhoneInput que en full */}
               <div className={styles['mp-form-group']}>
                 <label>Teléfono</label>
-                <input
-                  type="tel"
-                  required
-                  value={customer.phone}
-                  onChange={(e) => setCustomer((c) => ({ ...c, phone: e.target.value }))}
-                  className={styles['mp-text-input']}
-                />
+                {typeof window !== 'undefined' && (
+                  <PhoneInput
+                    country={'mx'}
+                    value={customer.phone || ''}
+                    onChange={(value) => {
+                      if (value) {
+                        setCustomer((c) => ({ ...c, phone: String(value) }))
+                      }
+                    }}
+                    inputClass={styles['mp-phone-input']}
+                    containerClass={styles['mp-phone-container']}
+                    enableSearch={false}
+                    disableSearchIcon={true}
+                    preferredCountries={['mx', 'us', 'co', 'ar', 'pe', 'cl']}
+                    placeholder="Número de teléfono"
+                  />
+                )}
+                <small className={styles['mp-form-help']}>Incluya código de país y solo números</small>
               </div>
 
               <div className={styles['mp-button-container']}>
