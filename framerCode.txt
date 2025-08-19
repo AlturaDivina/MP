@@ -13,9 +13,15 @@ interface MercadoPagoEmbedProps {
     height: number | string
     onRedirect?: (event: any) => void
     sessionIdOverride?: string
-    displayMode?: "full" | "cartIconOnly" | "paymentFlowOnly" | "sidebarOnly" | "family"
+    displayMode?:
+        | "full"
+        | "cartIconOnly"
+        | "paymentFlowOnly"
+        | "sidebarOnly"
+        | "family"
     initialStep?: number
     cartIconColor?: string
+    usePageDefault?: boolean // nuevo
 }
 
 export function MercadoPagoEmbed(
@@ -34,7 +40,8 @@ export function MercadoPagoEmbed(
         sessionIdOverride,
         displayMode,
         initialStep,
-        cartIconColor, // Nueva prop
+        cartIconColor,
+        usePageDefault = true, // nuevo: por defecto deja que page.js decida
     } = props
 
     // CAMBIO CLAVE: Usar un sessionId global para toda la página
@@ -158,25 +165,44 @@ export function MercadoPagoEmbed(
         sessionId: sessionId,
     }
 
-    // Normalizar legacy → family
-    const normalizedDisplayMode =
-        displayMode === "familyFriends" || displayMode === "family/friends"
-            ? "family"
-            : displayMode
+    // Normalizar y validar displayMode (sin fallback aquí)
+    const allowedDisplayModes = new Set([
+        "full",
+        "family",
+        "cartIconOnly",
+        "paymentFlowOnly",
+        "sidebarOnly",
+    ])
+    const normalizedDisplayMode = React.useMemo(() => {
+        const raw = (displayMode ?? "").toString().trim()
+        return allowedDisplayModes.has(raw) ? raw : undefined
+    }, [displayMode])
 
-    if (normalizedDisplayMode) {
+    if (!usePageDefault && normalizedDisplayMode) {
         params["displayMode"] = normalizedDisplayMode
     }
-    // Solo enviar initialStep para paymentFlowOnly
-    if (normalizedDisplayMode === "paymentFlowOnly" && initialStep != null) {
+    // Solo enviar initialStep para paymentFlowOnly cuando se fuerza el modo
+    if (!usePageDefault && normalizedDisplayMode === "paymentFlowOnly" && initialStep != null) {
         params["initialStep"] = String(initialStep)
     }
-    if (cartIconColor && normalizedDisplayMode === "cartIconOnly") {
+    if (!usePageDefault && cartIconColor && normalizedDisplayMode === "cartIconOnly") {
         params["cartIconColor"] = cartIconColor
+    } else {
     }
 
     const queryParams = new URLSearchParams(params).toString()
     const iframeSrc = `${baseUrl}?${queryParams}`
+
+    console.log(
+        "[MP Embed] displayMode prop:",
+        displayMode,
+        "usePageDefault:",
+        usePageDefault,
+        "→ normalized:",
+        normalizedDisplayMode,
+        "→ iframeSrc:",
+        iframeSrc
+    )
 
     return (
         <iframe
@@ -251,18 +277,32 @@ addPropertyControls(MercadoPagoEmbed, {
         type: ControlType.String,
         defaultValue: "",
     },
+    usePageDefault: {
+        title: "Use Page Default",
+        type: ControlType.Boolean,
+        defaultValue: true,
+    },
     displayMode: {
         title: "Display Mode",
         type: ControlType.Enum,
-        options: ["full", "cartIconOnly", "paymentFlowOnly", "sidebarOnly", "family"],
-        defaultValue: "full",
+        options: [
+            "full",
+            "cartIconOnly",
+            "paymentFlowOnly",
+            "sidebarOnly",
+            "family",
+        ],
+        defaultValue: "family",
+        hidden(props) {
+            return props.usePageDefault === true
+        },
     },
     cartIconColor: {
         title: "Cart Icon Color",
         type: ControlType.Color,
         defaultValue: "#333333",
         hidden(props) {
-            return props.displayMode !== "cartIconOnly"
+            return props.usePageDefault === true || props.displayMode !== "cartIconOnly"
         },
     },
     initialStep: {
@@ -272,8 +312,7 @@ addPropertyControls(MercadoPagoEmbed, {
         min: 1,
         step: 1,
         hidden(props) {
-            // Mostrar solo para paymentFlowOnly
-            return props.displayMode !== "paymentFlowOnly"
+            return props.usePageDefault === true || props.displayMode !== "paymentFlowOnly"
         },
     },
 })
@@ -288,7 +327,6 @@ MercadoPagoEmbed.defaultProps = {
     hideTitle: false,
     width: 300,
     height: 500,
-    displayMode: "full" as const,
-    initialStep: 1, // OK dejarlo, ya no se envía salvo en paymentFlowOnly
-    cartIconColor: "#333333",
+    usePageDefault: true,
+    // Nota: mantener displayMode: "family" no afecta, porque si usePageDefault es true no se envía.
 }

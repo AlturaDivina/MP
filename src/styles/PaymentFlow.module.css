@@ -13,26 +13,22 @@
   font-size: 2rem;
   font-weight: 400;
   margin-bottom: 3rem;
-  text-align: center !important;
-  width: 100%;
-  display: block;
-  margin-left: auto;
-  margin-right: auto;
-  color: #000;
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
+  text-align: center;
+  display: block;          /* bloque */
+  width: max-content;      /* ancho = contenido (título) */
+  margin: 0 auto 2rem;     /* centrado + espacio inferior */
   position: relative;
+  padding-bottom: 1rem;
 }
 
 .mp-page-title::after {
   content: '';
   position: absolute;
-  bottom: -0.75rem;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 3rem;
-  height: 1px;
-  background-color: var(--mp-primary-button-color) !important;
+  left: 0;
+  bottom: 0;
+  width: 100%;
+  height: 3px;
+  background-color: var(--mp-primary-button-color, #F26F32);
 }
 
 /* Formulario y selección de productos */

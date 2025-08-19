@@ -107,17 +107,21 @@ input, select, textarea {
 
 .mp-page-title {
   margin-bottom: 3rem !important;
+  display: inline-block; /* el ancho se ajusta al texto */
+  width: auto;
+  margin-left: auto;
+  margin-right: auto;
   position: relative;
+  text-align: center !important;
   padding-bottom: 1rem;
 }
 
 .mp-page-title::after {
   content: '';
   position: absolute;
+  left: 0;
   bottom: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 80px;
+  width: 100%;            /* igual al ancho del título */
   height: 3px;
   background-color: #F26F32;
 }

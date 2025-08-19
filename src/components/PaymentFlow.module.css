@@ -129,3 +129,23 @@
   padding-top: 8px;
   margin-top: 8px;
 }
+
+/* Estilos para el título de la página */
+.mp-page-title {
+  text-align: center;
+  display: block;          /* bloque */
+  width: max-content;      /* ancho = contenido (título) */
+  margin: 0 auto 2rem;     /* centrado + espacio inferior */
+  position: relative;
+  padding-bottom: 1rem;    /* separación línea */
+}
+
+.mp-page-title::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 100%;             /* igual al ancho del título */
+  height: 3px;
+  background-color: var(--mp-primary-button-color, #F26F32);
+}
