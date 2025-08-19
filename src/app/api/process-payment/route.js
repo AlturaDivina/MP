@@ -127,7 +127,7 @@ async function processMercadoPagoPayment({
   }
 
   // 2. SIEMPRE calcula el total en el backend
-  const SHIPPING_FEE = 200; // $200 MXN cargo fijo
+  const SHIPPING_FEE = isFF ? 0 : 200; // En FF no se cobra envío
   const calculatedAmount = preferenceItems.reduce((total, item) => 
     total + (item.unit_price * item.quantity), 0);
 
@@ -396,7 +396,7 @@ export async function POST(req) {
       itemsForPayment = secureOrderItems;
 
       // ✅ CORRECCIÓN: Agregar el fee de envío al total calculado
-      const SHIPPING_FEE = 200;
+  const SHIPPING_FEE = displayMode === 'familyFriends' ? 0 : 200;
       const totalWithShipping = secureTotal + SHIPPING_FEE;
 
       // ✅ Comparar con el total enviado para detectar manipulación
@@ -492,7 +492,7 @@ export async function POST(req) {
       logInfo(`🟢 [${idempotencyKey}] ENTRANDO al bloque principal de payment request`);
 
       // Preparar datos para registro en BD
-      const SHIPPING_FEE = 200;
+  const SHIPPING_FEE = displayMode === 'familyFriends' ? 0 : 200;
       const subtotalProducts = itemsForPayment.reduce(
         (total, item) => total + parseFloat(item.price) * parseInt(item.quantity),
         0
@@ -503,7 +503,8 @@ export async function POST(req) {
         displayMode === 'familyFriends'
           ? {
               display_mode: 'familyFriends',
-              full_name: userData?.fullName || '',
+              first_name: userData?.first_name || '',
+              last_name: userData?.last_name || '',
               email: userData?.email || '',
               phone: userData?.phone || ''
             }
@@ -545,7 +546,7 @@ export async function POST(req) {
         payment_status: paymentResponse.status,
         payment_detail: paymentResponse.status_detail || null,
         customer_age: parseInt(userData.calculatedAge) || 0,
-        shipping_fee: SHIPPING_FEE,
+  shipping_fee: SHIPPING_FEE,
         display_mode: displayMode
       };
 
@@ -621,13 +622,13 @@ export async function POST(req) {
           itemsForPayment: itemsForPayment?.length || 0
         });
 
-        const SHIPPING_FEE_EMAIL = 200;
+  const SHIPPING_FEE_EMAIL = displayMode === 'familyFriends' ? 0 : 200;
         const subtotalProductsEmail = itemsForPayment.reduce(
           (total, item) => total + parseFloat(item.price) * parseInt(item.quantity),
           0
         );
 
-        const orderDataForEmail = {
+  const orderDataForEmail = {
           userData,
           items: itemsForPayment.map((item) => ({
             name: item.name || `Producto #${item.product_id}`,
@@ -674,7 +675,8 @@ export async function POST(req) {
               shippingFee: SHIPPING_FEE_EMAIL,
               totalAmount: orderDataForEmail.total_amount,
               paymentStatus: paymentResponse.status,
-              paymentId: paymentResponse.id
+              paymentId: paymentResponse.id,
+              displayMode
             });
           }, 1);
 

@@ -56,7 +56,8 @@ export function useMercadoPagoPreference({
       const customer =
         displayMode === 'familyFriends' && userData
           ? {
-              fullName: userData.fullName,
+              first_name: userData.first_name || userData.fullName,
+              last_name: userData.last_name || '',
               email: userData.email,
               phone: userData.phone,
             }

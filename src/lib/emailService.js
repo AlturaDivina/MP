@@ -215,6 +215,8 @@ export async function sendReceiptEmail({
 function getCustomerEmailTemplate({ orderId, isApproved, customerName, orderData }) {
   const items = orderData.items || [];
   const totalAmount = orderData.total_amount || 0;
+  const mode = orderData?.displayMode || orderData?.metadata?.displayMode || 'full';
+  const isFF = mode === 'familyFriends';
   
   // Generar HTML de productos
   const itemsHtml = items.map(item => `
@@ -265,6 +267,7 @@ function getCustomerEmailTemplate({ orderId, isApproved, customerName, orderData
             ${isApproved ? 'Confirmado' : 'Pendiente de pago'}
           </span>
         </p>
+        ${isFF ? `<p style="margin: 10px 0 0; font-size: 14px; color:#0d6efd;"><strong>Modalidad:</strong> Family & Friends</p>` : ''}
       </div>
       
       <!-- Productos -->
@@ -337,6 +340,8 @@ function getLogisticsEmailTemplate({ orderId, isApproved, orderData }) {
   const address = customer.address || {};
   const items = orderData.items || [];
   const totalAmount = orderData.total_amount || 0;
+  const mode = orderData?.displayMode || orderData?.metadata?.displayMode || 'full';
+  const isFF = mode === 'familyFriends';
   
   // Formatear productos para el email
   const productsHtml = items.map(item => 
@@ -380,6 +385,7 @@ function getLogisticsEmailTemplate({ orderId, isApproved, orderData }) {
             </p>
           </div>
         </div>
+        ${isFF ? `<div style="margin-top:10px; padding:10px; background:#e7f1ff; border-left:4px solid #0d6efd; border-radius:6px; color:#0d6efd; font-weight:600;">Modalidad: Family & Friends</div>` : ''}
       </div>
       
       <!-- Datos del cliente -->
@@ -497,9 +503,12 @@ export async function sendPaymentApprovedEmail(paymentRequest, paymentInfo) {
       orderId: paymentRequest.id,
       customerData,
       items: orderItems,
+      subtotalAmount: (paymentRequest.total_amount ?? 0) - (paymentRequest.shipping_fee ?? 200),
+      shippingFee: paymentRequest.shipping_fee ?? 200,
       totalAmount: paymentRequest.total_amount,
       paymentStatus: 'approved',
-      paymentId: paymentInfo.id
+      paymentId: paymentInfo.id,
+      displayMode: paymentRequest.display_mode || paymentRequest.metadata?.displayMode
     });
 
     // Enviar email completo con PDF

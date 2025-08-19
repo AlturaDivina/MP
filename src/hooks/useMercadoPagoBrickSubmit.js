@@ -71,8 +71,8 @@ export function useMercadoPagoBrickSubmit({
           : 0);
 
       // CRÍTICO: Sumar shipping fee al monto final antes de enviarlo al backend
-      const SHIPPING_FEE = 200;
-      const totalWithShipping = finalAmount + SHIPPING_FEE;
+  const SHIPPING_FEE = (displayMode === 'familyFriends') ? 0 : 200;
+  const totalWithShipping = finalAmount + SHIPPING_FEE;
 
       const backendPayload = {
         paymentType: formDataFromBrick.paymentType || "credit_card",

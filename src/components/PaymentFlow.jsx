@@ -29,7 +29,7 @@ export default function PaymentFlow(props) {
   const { displayMode: rawDisplayMode /*, ...existing props... */ } = props
   const displayMode = normalizeDisplayMode(rawDisplayMode)
   const isFamilyFriends = displayMode === 'familyFriends'
-  const [customer, setCustomer] = React.useState({ fullName: '', email: '', phone: '' })
+  const [customer, setCustomer] = React.useState({ fullName: '', first_name: '', last_name: '', email: '', phone: '' })
   if (!props.apiBaseUrl) {
     logError("PaymentFlow Error: 'apiBaseUrl' prop is required.");
     return <div className={styles['mp-error-container']}>Error de configuración: Falta apiBaseUrl.</div>;
@@ -89,7 +89,7 @@ export default function PaymentFlow(props) {
 
   // NUEVO: Función para calcular total con fee de envío
   const calculateTotalPrice = () => {
-    return totalAmount + SHIPPING_FEE;
+  return totalAmount + (isFamilyFriends ? 0 : SHIPPING_FEE);
   };
 
   useEffect(() => {
@@ -298,8 +298,8 @@ export default function PaymentFlow(props) {
   };
 
   const handleConfirmOrder = async () => {
-    // En FF saltar validaciones de mayoría de edad/términos/envío
-    if (!isFamilyFriends) {
+  // Validaciones de mayoría de edad/términos
+  if (!isFamilyFriends) {
       if (!userData.isOver18) {
         alert('🚫 Debes confirmar que eres mayor de 18 años para comprar productos con alcohol');
         return;
@@ -319,6 +319,19 @@ export default function PaymentFlow(props) {
       if (userData.calculatedAge && userData.calculatedAge < 18) {
         alert('🚫 Lo sentimos, debes ser mayor de 18 años para realizar esta compra. Tu edad calculada es ' + userData.calculatedAge + ' años.');
         return;
+      }
+    } else {
+      // En FF requerir solo las 2 de edad y setear shipping fee como aceptado implícitamente
+      if (!userData.isOver18) {
+        alert('🚫 Debes confirmar que eres mayor de 18 años');
+        return;
+      }
+      if (!userData.acceptsAlcoholTerms) {
+        alert('✅ Debes aceptar los términos de alcohol');
+        return;
+      }
+      if (!userData.acceptsShippingFee) {
+        setUserData({ ...userData, acceptsShippingFee: true });
       }
     }
 
@@ -341,7 +354,7 @@ export default function PaymentFlow(props) {
       total: item.price * item.quantity
     })));
     logInfo('SUBTOTAL: $' + formatPrice(calculateSubtotal()));
-    logInfo('FEE DE ENVÍO: $' + formatPrice(SHIPPING_FEE));
+  logInfo('FEE DE ENVÍO: $' + formatPrice(isFamilyFriends ? 0 : SHIPPING_FEE));
     logInfo('TOTAL A PAGAR: $' + formatPrice(calculateTotalPrice()));
     logInfo('============================');
 
@@ -776,10 +789,12 @@ export default function PaymentFlow(props) {
                 <span>Subtotal productos:</span>
                 <span>${formatPrice(totalAmount)}</span>
               </div>
-              <div className={styles['mp-price-row']}>
-                <span>Cargo de envío:</span>
-                <span>$200.00</span>
-              </div>
+              {!isFamilyFriends && (
+                <div className={styles['mp-price-row']}>
+                  <span>Cargo de envío:</span>
+                  <span>$200.00</span>
+                </div>
+              )}
               <div className={styles['mp-price-row', styles['mp-total-row']]}>
                 <span><strong>Total en Carrito:</strong></span>
                 <span><strong>${formatPrice(calculateTotalPrice())}</strong></span>
@@ -819,22 +834,40 @@ export default function PaymentFlow(props) {
                 }
                 // Mapear a userData mínimo y avanzar
                 setUserData({
-                  fullName: customer.fullName,
                   email: customer.email,
+                  first_name: customer.first_name || (customer.fullName ? customer.fullName.split(' ').slice(0, -1).join(' ') : ''),
+                  last_name: customer.last_name || (customer.fullName ? customer.fullName.split(' ').slice(-1).join(' ') : ''),
                   phone: customer.phone,
+                  isOver18: userData.isOver18 || false,
+                  acceptsAlcoholTerms: userData.acceptsAlcoholTerms || false,
+                  acceptsShippingFee: true, // no aplica en FF, pero evitar bloqueos posteriores
                 })
                 setCurrentStep(3)
               }}
             >
-              <div className={styles['mp-form-group']}>
-                <label>Nombre completo</label>
-                <input
-                  type="text"
-                  required
-                  value={customer.fullName}
-                  onChange={(e) => setCustomer((c) => ({ ...c, fullName: e.target.value }))}
-                  className={styles['mp-text-input']}
-                />
+              <div className={styles['mp-form-row']}>
+                <div className={styles['mp-form-group']}>
+                  <label htmlFor="ff-first-name">NOMBRE: <span className={styles['required']}>*</span></label>
+                  <input
+                    id="ff-first-name"
+                    type="text"
+                    required
+                    value={customer.first_name}
+                    onChange={(e) => setCustomer((c) => ({ ...c, first_name: e.target.value }))}
+                    className={styles['mp-text-input']}
+                  />
+                </div>
+                <div className={styles['mp-form-group']}>
+                  <label htmlFor="ff-last-name">APELLIDO: <span className={styles['required']}>*</span></label>
+                  <input
+                    id="ff-last-name"
+                    type="text"
+                    required
+                    value={customer.last_name}
+                    onChange={(e) => setCustomer((c) => ({ ...c, last_name: e.target.value }))}
+                    className={styles['mp-text-input']}
+                  />
+                </div>
               </div>
 
               <div className={styles['mp-form-group']}>
@@ -1224,15 +1257,17 @@ export default function PaymentFlow(props) {
               </div>
             ))}
             
-            <div className={styles['mp-price-summary']}>
+              <div className={styles['mp-price-summary']}>
               <div className={styles['mp-price-row']}>
                 <span>Subtotal productos:</span>
                 <span>{formatPrice(calculateSubtotal())}</span>
               </div>
-              <div className={styles['mp-price-row']}>
-                <span>Envío:</span>
-                <span>{formatPrice(SHIPPING_FEE)}</span>
-              </div>
+              {!isFamilyFriends && (
+                <div className={styles['mp-price-row']}>
+                  <span>Envío:</span>
+                  <span>{formatPrice(SHIPPING_FEE)}</span>
+                </div>
+              )}
               <div className={cn(styles['mp-price-row'], styles['mp-total'])}>
                 <span>Total:</span>
                 <span>{formatPrice(calculateTotalPrice())}</span>
@@ -1246,10 +1281,7 @@ export default function PaymentFlow(props) {
               <div className={styles['mp-buyer-info-row']}>
                 <span className={styles['mp-buyer-info-label']}>Nombre:</span>
                 <span className={styles['mp-buyer-info-value']}>
-                  {isFamilyFriends
-                    ? (userData.fullName || '')
-                    : `${userData.first_name} ${userData.last_name}`
-                }
+                  {`${userData.first_name || ''} ${userData.last_name || ''}`.trim()}
                 </span>
               </div>
               <div className={styles['mp-buyer-info-row']}>
@@ -1295,8 +1327,8 @@ export default function PaymentFlow(props) {
             </div>
           </div>
 
-          {/* Confirmaciones: ocultar en FF */}
-          {!isFamilyFriends && (
+          {/* Confirmaciones: en FF mostrar solo 2 de edad y ocultar envío */}
+          {(
             <div className={styles['mp-confirmations']}>
               <h3>Confirmaciones Requeridas</h3>
               
@@ -1329,21 +1361,22 @@ export default function PaymentFlow(props) {
                   </span>
                 </label>
               </div>
-
-              <div className={styles['mp-form-group']}>
-                <label className={styles['mp-checkbox-label']}>
-                  <input
-                    type="checkbox"
-                    checked={userData.acceptsShippingFee || false}
-                    onChange={(e) => setUserData({...userData, acceptsShippingFee: e.target.checked})}
-                    required
-                  />
-                  <span className={styles['mp-checkbox-text']}>
-                    Acepto el cargo fijo de envío de $200.00 MXN que se agregará a mi pedido. 
-                    Este cargo cubre el manejo especial y entrega segura de productos regulados. <span className={styles['required']}>*</span>
-                  </span>
-                </label>
-              </div>
+              {!isFamilyFriends && (
+                <div className={styles['mp-form-group']}>
+                  <label className={styles['mp-checkbox-label']}>
+                    <input
+                      type="checkbox"
+                      checked={userData.acceptsShippingFee || false}
+                      onChange={(e) => setUserData({...userData, acceptsShippingFee: e.target.checked})}
+                      required
+                    />
+                    <span className={styles['mp-checkbox-text']}>
+                      Acepto el cargo fijo de envío de $200.00 MXN que se agregará a mi pedido. 
+                      Este cargo cubre el manejo especial y entrega segura de productos regulados. <span className={styles['required']}>*</span>
+                    </span>
+                  </label>
+                </div>
+              )}
             </div>
           )}
 
@@ -1364,8 +1397,7 @@ export default function PaymentFlow(props) {
                 // Deshabilitar sólo en modo full
                 disabled={
                   savingCustomer ||
-                  (!isFamilyFriends &&
-                    (!userData.isOver18 || !userData.acceptsAlcoholTerms || !userData.acceptsShippingFee))
+                  (!userData.isOver18 || !userData.acceptsAlcoholTerms || (!isFamilyFriends && !userData.acceptsShippingFee))
                 }
               >
                 {savingCustomer ? 'Guardando...' : 'Confirmar y Proceder al Pago'}
@@ -1497,10 +1529,12 @@ export default function PaymentFlow(props) {
                   <span>Subtotal productos:</span>
                   <span>${formatPrice(totalAmount)}</span>
                 </div>
-                <div className={styles['mp-price-row']}>
-                  <span>Cargo de envío:</span>
-                  <span>$200.00</span>
-                </div>
+                {!isFamilyFriends && (
+                  <div className={styles['mp-price-row']}>
+                    <span>Cargo de envío:</span>
+                    <span>$200.00</span>
+                  </div>
+                )}
                 <div className={styles['mp-price-row', styles['mp-total-row']]}>
                   <span><strong>Total a Pagar:</strong></span>
                   <span><strong>${formatPrice(calculateTotalPrice())}</strong></span>

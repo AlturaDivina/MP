@@ -41,7 +41,7 @@ export default function MercadoPagoProvider(props) {
   const payerMinimal =
     displayMode === 'familyFriends'
       ? {
-          name: userData?.fullName || '',
+          name: (userData?.first_name || userData?.fullName || '').toString(),
           email: userData?.email || '',
           phone: userData?.phone ? { number: String(userData.phone) } : undefined,
         }

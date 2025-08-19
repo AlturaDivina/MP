@@ -12,7 +12,8 @@ export async function generateReceiptPDF({
   shippingFee, // ✅ NUEVO parámetro
   totalAmount,
   paymentStatus,
-  paymentId
+  paymentId,
+  displayMode
 }) {
   try {
     logInfo(`📄 [${orderId}] Iniciando generación de PDF con pdf-lib`);
@@ -45,6 +46,16 @@ export async function generateReceiptPDF({
       font: font,
       color: rgb(0, 0, 0),
     });
+    // Badge Family & Friends
+    if (displayMode === 'familyFriends') {
+      page.drawText('[Family & Friends]', {
+        x: 220,
+        y: yPosition,
+        size: 12,
+        font: boldFont,
+        color: rgb(0.05, 0.35, 0.85)
+      });
+    }
     
     // Order info
     yPosition -= 40;
@@ -95,16 +106,19 @@ export async function generateReceiptPDF({
       yPosition -= 20;
     }
     
-    // NUEVO: Agregar línea de cargo de envío
+    // NUEVO: Agregar línea de cargo de envío (usar fee provisto)
     yPosition -= 10;
-    page.drawText('Cargo de envío', { x: 50, y: yPosition, size: 10, font });
-    page.drawText('1', { x: 300, y: yPosition, size: 10, font });
-    page.drawText('$200.00', { x: 380, y: yPosition, size: 10, font });
-    page.drawText('$200.00', { x: 480, y: yPosition, size: 10, font });
-    yPosition -= 20;
+    const fee = Number(shippingFee || 0);
+    if (fee > 0) {
+      page.drawText('Cargo de envío', { x: 50, y: yPosition, size: 10, font });
+      page.drawText('1', { x: 300, y: yPosition, size: 10, font });
+      page.drawText(`$${fee.toFixed(2)}`, { x: 380, y: yPosition, size: 10, font });
+      page.drawText(`$${fee.toFixed(2)}`, { x: 480, y: yPosition, size: 10, font });
+      yPosition -= 20;
+    }
     
     // Subtotal
-    const subtotal = parseFloat(totalAmount) - 200; // Restar fee para mostrar subtotal
+    const subtotal = subtotalAmount != null ? Number(subtotalAmount) : (Number(totalAmount) - fee);
     yPosition -= 10;
     page.drawText(`SUBTOTAL: $${subtotal.toFixed(2)}`, { 
       x: 380, 

@@ -186,8 +186,20 @@ export function validateCustomerByMode(mode, data) {
   }
 
   const errors = {}
-  if (!data?.fullName || String(data.fullName).trim().length < 2) {
-    errors.fullName = 'Nombre completo es requerido'
+  // Aceptar ya sea nombre completo O nombre y apellido separados
+  const hasFullName = !!(data?.fullName) && String(data.fullName).trim().length >= 2
+  const hasFirst = !!(data?.first_name) && String(data.first_name).trim().length >= 1
+  const hasLast = !!(data?.last_name) && String(data.last_name).trim().length >= 1
+  const hasFirstLast = hasFirst && hasLast
+  if (!hasFullName && !hasFirstLast) {
+    // Proveer mensajes acordes al formulario de FF (nombre y apellido)
+    if (!hasFirst) errors.first_name = 'Nombre es requerido'
+    if (!hasLast) errors.last_name = 'Apellido es requerido'
+    if (hasFirst || hasLast) {
+      // Si alguno existe pero no ambos, evitar mensaje genérico de fullName
+    } else {
+      errors.fullName = 'Nombre completo es requerido'
+    }
   }
   if (!data?.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(data.email))) {
     errors.email = 'Correo electrónico inválido'
