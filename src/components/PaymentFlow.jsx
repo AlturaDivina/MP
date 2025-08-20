@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import cn from 'classnames';
 import styles from '../styles/PaymentFlow.module.css';
 import MercadoPagoProvider from './MercadoPagoProvider';
@@ -12,7 +12,16 @@ import CartIcon from './CartIcon';
 import CartSidebar from './CartSidebar';
 import { useCustomerSave } from '../hooks/useCustomerSave';
 import ErrorMessage from './ErrorMessage';
-import { sanitizeName, sanitizeAddress, sanitizePhone, sanitizeEmail, sanitizeInput } from '../utils/security';
+import {
+  sanitizeInput as secureSanitizeInput,
+  sanitizeName,
+  sanitizeAddress,
+  sanitizePhone,
+  sanitizeEmail,
+  sanitizeInputTyping,
+  sanitizeNameTyping,
+  sanitizeAddressTyping,
+} from '../utils/security';
 import { normalizeDisplayMode, validateCustomerByMode } from '../lib/validation'
 
 // NUEVO: Constante para el fee de envío
@@ -513,42 +522,41 @@ export default function PaymentFlow(props) {
     );
   };
 
-  // Función helper para manejar cambios sanitizados
-  const handleSecureInputChange = useCallback((field, value, sanitizeType = 'text', maxLength = 100) => {
+  // onChange: usa *Typing* (no trim). onBlur: usa versión final (con trim).
+  const handleSecureInputChange = useCallback((field, value, sanitizeType = 'text', maxLength = 200, phase = 'typing') => {
+    const isTyping = phase === 'typing';
     let sanitized;
-    
+
     switch (sanitizeType) {
       case 'name':
-        sanitized = sanitizeName(value, maxLength);
+        sanitized = isTyping
+          ? sanitizeNameTyping(value, Math.min(maxLength, 100))
+          : sanitizeName(value, Math.min(maxLength, 100));
         break;
       case 'address':
-        sanitized = sanitizeAddress(value, maxLength);
-        break;
-      case 'phone':
-        sanitized = sanitizePhone(value);
+        sanitized = isTyping
+          ? sanitizeAddressTyping(value, Math.min(maxLength, 200))
+          : sanitizeAddress(value, Math.min(maxLength, 200));
         break;
       case 'email':
         sanitized = sanitizeEmail(value);
         break;
+      case 'phone':
+        sanitized = sanitizePhone(value);
+        break;
       default:
-        sanitized = sanitizeInput(value, maxLength);
+        sanitized = isTyping
+          ? sanitizeInputTyping(value, maxLength)
+          : secureSanitizeInput(value, maxLength);
     }
-    
-    if (field.includes('.')) {
-      const [parent, child] = field.split('.');
-      setUserData(prev => ({
-        ...prev,
-        [parent]: {
-          ...(prev[parent] || {}),
-          [child]: sanitized
-        }
-      }));
-    } else {
-      setUserData(prev => ({
-        ...prev,
-        [field]: sanitized
-      }));
-    }
+
+    setUserData(prev => {
+      if (field.includes('.')) {
+        const [parent, child] = field.split('.');
+        return { ...prev, [parent]: { ...(prev[parent] || {}), [child]: sanitized } };
+      }
+      return { ...prev, [field]: sanitized };
+    });
   }, []);
 
   // Keep currentStep in sync if prop changes (only when becomes valid)
@@ -1101,7 +1109,13 @@ export default function PaymentFlow(props) {
                     id="mp-city"
                     type="text"
                     value={userData.address?.city || ''}
-                    onChange={(e) => handleSecureInputChange('address.city', e.target.value, 'address', 100)}
+                    onChange={(e) => handleSecureInputChange('address.city', e.target.value, 'address', 100, 'typing')}
+                    onBlur={(e) => handleSecureInputChange('address.city', e.target.value, 'address', 100, 'final')}
+                    // evita handlers que bloqueen la barra espaciadora
+                    // pattern permite espacios y caracteres comunes
+                    pattern="^[A-Za-zÀ-ÿ\u00f1\u00d1][A-Za-zÀ-ÿ\u00f1\u00d1\s\-'./#°]*$"
+                    inputMode="text"
+                    autoComplete="address-level2"
                     className={styles['mp-text-input']}
                   />
                 </div>
@@ -1113,7 +1127,11 @@ export default function PaymentFlow(props) {
                     id="mp-state"
                     type="text"
                     value={userData.address?.state || ''}
-                    onChange={(e) => handleSecureInputChange('address.state', e.target.value, 'address', 100)}
+                    onChange={(e) => handleSecureInputChange('address.state', e.target.value, 'address', 100, 'typing')}
+                    onBlur={(e) => handleSecureInputChange('address.state', e.target.value, 'address', 100, 'final')}
+                    pattern="^[A-Za-zÀ-ÿ\u00f1\u00d1][A-Za-zÀ-ÿ\u00f1\u00d1\s\-'./#°]*$"
+                    inputMode="text"
+                    autoComplete="address-level1"
                     className={styles['mp-text-input']}
                   />
                 </div>

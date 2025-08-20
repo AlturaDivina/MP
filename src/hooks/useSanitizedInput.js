@@ -1,31 +1,28 @@
-import { useState, useCallback } from 'react';
-import { sanitizeName, sanitizeAddress, sanitizePhone, sanitizeEmail, sanitizeInput } from '../utils/security';
+import { useCallback } from 'react';
+import {
+  sanitizeInput as secureSanitizeInput,
+  sanitizeAddress,
+  sanitizeName,
+  sanitizePhone,
+  sanitizeEmail,
+} from '../utils/security';
 
-export function useSanitizedInput(initialValue = '', type = 'text', maxLength = 100) {
-  const [value, setValue] = useState(initialValue);
-  
-  const setSanitizedValue = useCallback((newValue) => {
-    let sanitized;
-    
+export default function useSanitizedInput() {
+  const sanitize = useCallback((value, type = 'text', maxLength = 200) => {
     switch (type) {
       case 'name':
-        sanitized = sanitizeName(newValue, maxLength);
-        break;
+        return sanitizeName(value, Math.min(maxLength, 100));
       case 'address':
-        sanitized = sanitizeAddress(newValue, maxLength);
-        break;
-      case 'phone':
-        sanitized = sanitizePhone(newValue);
-        break;
+        return sanitizeAddress(value, Math.min(maxLength, 200));
       case 'email':
-        sanitized = sanitizeEmail(newValue);
-        break;
+        return sanitizeEmail(value);
+      case 'phone':
+        return sanitizePhone(value);
+      case 'text':
       default:
-        sanitized = sanitizeInput(newValue, maxLength);
+        return secureSanitizeInput(value, maxLength);
     }
-    
-    setValue(sanitized);
-  }, [type, maxLength]);
-  
-  return [value, setSanitizedValue];
+  }, []);
+
+  return { sanitize };
 }

@@ -11,35 +11,16 @@
  * @returns {string|object|array} - Entrada sanitizada
  */
 export function sanitizeInput(input, maxLength = 1000) {
-  if (input === null || input === undefined) {
-    return input;
-  }
-
-  // Para objetos, sanitizar recursivamente cada propiedad
-  if (typeof input === 'object' && !Array.isArray(input)) {
-    const sanitizedObj = {};
-    for (const [key, value] of Object.entries(input)) {
-      // Sanitizar las claves también
-      const sanitizedKey = typeof key === 'string' 
-        ? sanitizeString(key, 100) 
-        : key;
-      sanitizedObj[sanitizedKey] = sanitizeInput(value, maxLength);
-    }
-    return sanitizedObj;
-  }
-
-  // Para arrays, sanitizar cada elemento
-  if (Array.isArray(input)) {
-    return input.map(item => sanitizeInput(item, maxLength));
-  }
-
-  // Para strings, aplicar sanitización de strings
-  if (typeof input === 'string') {
-    return sanitizeString(input, maxLength);
-  }
-
-  // Otros tipos (números, booleanos) se devuelven sin cambios
-  return input;
+  const str = String(input ?? '');
+  const cleaned = str
+    .normalize('NFKC')
+    .replace(/[\u0000-\u001F\u007F]/g, '')
+    // elimina caracteres claramente peligrosos pero conserva espacios
+    .replace(/[<>`$]/g, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim()
+    .slice(0, maxLength);
+  return cleaned;
 }
 
 /**
@@ -89,34 +70,36 @@ export function validateAlphanumeric(input, allowSpecial = false) {
 /**
  * Función específica para nombres (más restrictiva)
  */
-export function sanitizeName(input, maxLength = 50) {
-  if (typeof input !== 'string') return '';
-  
-  // Solo permitir letras, espacios, acentos y algunos caracteres especiales para nombres
-  const namePattern = /^[a-zA-ZÀ-ÿ\u0100-\u017F\s'-\.]+$/;
-  
-  // Aplicar sanitización base primero
-  let sanitized = sanitizeInput(input, maxLength);
-  
-  // Remover caracteres no permitidos en nombres
-  sanitized = sanitized.replace(/[^a-zA-ZÀ-ÿ\u0100-\u017F\s'-\.]/g, '');
-  
-  return sanitized.trim();
+export function sanitizeName(value, maxLength = 100) {
+  const str = String(value ?? '');
+  const cleaned = str
+    .normalize('NFKC')
+    .replace(/[\u0000-\u001F\u007F]/g, '')
+    // letras, espacios, guión y apóstrofo
+    .replace(/[^A-Za-zÀ-ÿ\u00f1\u00d1\s\-']/g, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim()
+    .slice(0, maxLength);
+  return cleaned;
 }
 
 /**
  * Función específica para direcciones
  */
-export function sanitizeAddress(input, maxLength = 200) {
-  if (typeof input !== 'string') return '';
-  
-  // Permitir caracteres alfanuméricos, espacios y algunos especiales para direcciones
-  let sanitized = sanitizeInput(input, maxLength);
-  
-  // Remover caracteres peligrosos pero mantener los útiles para direcciones
-  sanitized = sanitized.replace(/[^a-zA-Z0-9À-ÿ\u0100-\u017F\s'#\-\.,°º\/]/g, '');
-  
-  return sanitized.trim();
+export function sanitizeAddress(value, maxLength = 200) {
+  const str = String(value ?? '');
+  const cleaned = str
+    .normalize('NFKC')
+    // elimina caracteres de control
+    .replace(/[\u0000-\u001F\u007F]/g, '')
+    // whitelist: letras (incluye acentos y ñ), números, espacios y puntuación típica de direcciones
+    // . , - # ° / \ '
+    .replace(/[^0-9A-Za-zÀ-ÿ\u00f1\u00d1\s\.,\-#°/\\']/g, '')
+    // colapsa espacios múltiples
+    .replace(/\s{2,}/g, ' ')
+    .trim()
+    .slice(0, maxLength);
+  return cleaned;
 }
 
 /**
@@ -137,6 +120,40 @@ export function sanitizeEmail(input) {
   
   // Patrón básico para email (más permisivo)
   return input.replace(/[<>'"]/g, '').trim().toLowerCase();
+}
+
+/**
+ * Variantes para escritura: preservan espacios finales (no usan .trim())
+ */
+export function sanitizeInputTyping(input, maxLength = 1000) {
+  const str = String(input ?? '');
+  return str
+    .normalize('NFKC')
+    .replace(/[\u0000-\u001F\u007F]/g, '')
+    .replace(/[<>`$]/g, '')
+    .replace(/\s{2,}/g, ' ')
+    .slice(0, maxLength); // sin trim
+}
+
+export function sanitizeNameTyping(value, maxLength = 100) {
+  const str = String(value ?? '');
+  return str
+    .normalize('NFKC')
+    .replace(/[\u0000-\u001F\u007F]/g, '')
+    .replace(/[^A-Za-zÀ-ÿ\u00f1\u00d1\s\-']/g, '')
+    .replace(/\s{2,}/g, ' ')
+    .slice(0, maxLength); // sin trim
+}
+
+export function sanitizeAddressTyping(value, maxLength = 200) {
+  const str = String(value ?? '');
+  return str
+    .normalize('NFKC')
+    .replace(/[\u0000-\u001F\u007F]/g, '')
+    // whitelist con espacios permitidos (\s). El \ en la clase permite la barra invertida literal.
+    .replace(/[^0-9A-Za-zÀ-ÿ\u00f1\u00d1\s\.,\-#°/\\']/g, '')
+    .replace(/\s{2,}/g, ' ')
+    .slice(0, maxLength); // sin trim
 }
 
 /**

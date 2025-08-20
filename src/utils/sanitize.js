@@ -1,3 +1,12 @@
+// Importa al inicio y evita colisión con alias
+import {
+  sanitizeInput as secureSanitizeInput,
+  sanitizeAddress,
+  sanitizeName,
+  sanitizePhone,
+  sanitizeEmail,
+} from './security';
+
 // Basic input sanitization functions
 
 /**
@@ -8,11 +17,13 @@
  */
 export function sanitizeString(input) {
   if (typeof input !== 'string') return '';
-  
-  // Sanitizar usando solo textContent, que es más seguro
+  // En SSR no hay document; hacer fallback seguro
+  if (typeof document === 'undefined') {
+    return String(input);
+  }
   const div = document.createElement('div');
   div.textContent = input;
-  return div.textContent; // Usar textContent en lugar de innerHTML
+  return div.textContent;
 }
 
 /**
@@ -23,7 +34,6 @@ export function sanitizeString(input) {
  */
 export function sanitizeInput(value, type) {
   if (value === null || value === undefined) {
-    // Return sensible defaults based on type
     if (type === 'string' || type === 'email' || type === 'url' || type === 'productId') return '';
     if (type === 'number' || type === 'integer' || type === 'quantity') return 0;
     if (type === 'boolean') return false;
@@ -33,43 +43,51 @@ export function sanitizeInput(value, type) {
   switch (type) {
     case 'string':
       return String(value).trim();
-    
+
     case 'productId': // Allow alphanumeric and hyphens for IDs
       return String(value).replace(/[^a-zA-Z0-9-]/g, '').trim();
-    
+
     case 'number':
       return parseFloat(value);
-    
+
     case 'integer':
-    case 'quantity':
+    case 'quantity': {
       const parsed = parseInt(value, 10);
       return isNaN(parsed) ? 0 : parsed;
-    
+    }
+
     case 'boolean':
       return Boolean(value);
-    
-    case 'email':
+
+    case 'email': {
       const email = String(value).trim().toLowerCase();
-      // Basic email format check
       if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
         return email;
       }
-      return ''; // Invalid email
-    
+      return '';
+    }
+
     case 'url':
       try {
         const url = new URL(String(value));
-        // Only allow http/https URLs
         if (['http:', 'https:'].includes(url.protocol)) {
           return url.toString();
         }
         return '';
       } catch (_) {
-        return ''; // Invalid URL
+        return '';
       }
-    
+
     default:
-      // For unknown types, just return the value
       return value;
   }
 }
+
+// Reexporta funciones de seguridad SIN re-declarar "sanitizeInput" (usa alias)
+export { secureSanitizeInput, sanitizeAddress, sanitizeName, sanitizePhone, sanitizeEmail };
+
+// Aliases comunes usados por formularios (usan el sanitizador seguro que preserva espacios)
+export const sanitizeText = (value, maxLength = 1000) => secureSanitizeInput(value, maxLength);
+export const sanitizeCity = (value, maxLength = 100) => sanitizeAddress(value, maxLength);
+export const sanitizeState = (value, maxLength = 100) => sanitizeAddress(value, maxLength);
+export const sanitizeStreet = (value, maxLength = 200) => sanitizeAddress(value, maxLength);
