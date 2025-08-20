@@ -26,6 +26,20 @@ const formatPrice = (price) => {
 };
 
 export default function PaymentFlow(props) {
+  const {
+    initialProductId,
+    // ...existing props...
+  } = props;
+
+  // Normalize for robust matching
+  const normalizedInitialProductId = initialProductId != null ? String(initialProductId) : null;
+
+  // Example: when deriving the initially selected product
+  // const products = ... (fetched)
+  // const initialProduct = normalizedInitialProductId
+  //   ? products.find(p => String(p.id) === normalizedInitialProductId)
+  //   : products?.[0];
+
   const { displayMode: rawDisplayMode /*, ...existing props... */ } = props
   const displayMode = normalizeDisplayMode(rawDisplayMode)
   const isFamilyFriends = displayMode === 'family'
