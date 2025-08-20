@@ -14,7 +14,8 @@ async function getCsrfToken() {
     return data.csrfToken;
   } catch (error) {
     logError("Error fetching CSRF token:", error);
-    throw error;
+    // No bloquear flujo: en iFrame/cross-origin es normal que la cookie no se comparta
+    return null;
   }
 }
 
@@ -54,8 +55,21 @@ export function useMercadoPagoBrickSubmit({
     try {
       const csrfToken = await getCsrfToken();
 
-      const tokenFromForm = formDataFromBrick.token || formDataFromBrick.formData?.token;
-      const paymentMethodFromForm = formDataFromBrick.payment_method_id || formDataFromBrick.formData?.payment_method_id;
+      // Normalize/flatten formData coming from the Brick
+      const raw = formDataFromBrick || {};
+      const inner = raw.formData && typeof raw.formData === 'object' ? raw.formData : {};
+      const flatFormData = { ...raw, ...inner };
+
+      const tokenFromForm =
+        flatFormData.token ||
+        raw.token ||
+        inner.token;
+
+      const paymentMethodFromForm =
+        flatFormData.payment_method_id ||
+        flatFormData.paymentMethodId ||
+        raw.payment_method_id ||
+        inner.payment_method_id;
 
       if (!tokenFromForm || !paymentMethodFromForm) {
         logError("Campos críticos faltantes en formDataFromBrick:", {
@@ -64,28 +78,34 @@ export function useMercadoPagoBrickSubmit({
         });
         throw new Error("Datos de pago incompletos desde el Brick. Por favor intente nuevamente.");
       }
-      
-      const finalAmount = totalAmount || 
-        (orderSummary 
+
+      const finalAmount = totalAmount ||
+        (orderSummary
           ? orderSummary.reduce((total, item) => total + (item.price * item.quantity), 0)
           : 0);
 
-      // CRÍTICO: Sumar shipping fee al monto final antes de enviarlo al backend
-  const SHIPPING_FEE = (displayMode === 'family') ? 0 : 200;
-  const totalWithShipping = finalAmount + SHIPPING_FEE;
+      const SHIPPING_FEE = (displayMode === 'family') ? 0 : 200;
+      const totalWithShipping = finalAmount + SHIPPING_FEE;
+
+      // Prefer robust payment type mapping
+      const paymentType =
+        flatFormData.paymentType ||
+        flatFormData.payment_type_id || // MP payload field
+        raw.paymentType ||
+        "credit_card";
 
       const backendPayload = {
-        paymentType: formDataFromBrick.paymentType || "credit_card",
-        formData: formDataFromBrick,
+        paymentType,
+        formData: flatFormData, // send normalized version
         isMultipleOrder: !!orderSummary,
-        orderSummary: orderSummary,
+        orderSummary,
         productId: !orderSummary ? productId : null,
         quantity: !orderSummary ? quantity : null,
         totalAmount: totalWithShipping,
-        userData: userData,
+        userData,
         sessionToken: await getUserSessionToken(),
         idempotencyKey: uuidv4(),
-  displayMode, // ✅ send mode so the API can relax validations for family
+        displayMode,
       };
 
       logInfo("Payload enviado a /api/process-payment:", backendPayload);
@@ -93,16 +113,16 @@ export function useMercadoPagoBrickSubmit({
       const processApiUrl = apiBaseUrl.includes('localhost')
         ? apiBaseUrl.replace(/\/$/, '').replace('https://', 'http://')
         : apiBaseUrl.replace(/\/$/, '');
-      
+
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
+      const timeoutId = setTimeout(() => controller.abort(), 30000);
+
+      const headers = { 'Content-Type': 'application/json' };
+      if (csrfToken) headers['X-CSRF-Token'] = csrfToken;
 
       const response = await fetch(`${processApiUrl}/api/process-payment`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRF-Token': csrfToken,
-        },
+        headers,
         body: JSON.stringify(backendPayload),
         signal: controller.signal,
         credentials: 'include'
@@ -275,32 +295,19 @@ export function useMercadoPagoBrickSubmit({
   async function submitPayment({ token, paymentMethodId, issuerId, installments }) {
     try {
       // ...existing code to build payload...
-      const payload = {
-        formData: {
-          token,
-          paymentMethodId,
-          issuerId,
-          installments,
-        },
-        isMultipleOrder: Array.isArray(orderSummary) && orderSummary.length > 0,
-        orderSummary: orderSummary || null,
-        productId: productId || null,
-        quantity: quantity || 1,
-        totalAmount,
-        userData,
-        successUrl,
-        pendingUrl,
-        failureUrl,
-        hostUrl,
-        displayMode, // <-- CRÍTICO: que llegue al backend
+      const csrfToken = await getCsrfToken();
+
+      const headers = {
+        'Content-Type': 'application/json',
+        'X-Idempotency-Key': crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2),
       };
+      if (csrfToken) {
+        headers['X-CSRF-Token'] = csrfToken;
+      }
 
       const res = await fetch(`${apiBaseUrl.replace(/\/$/, '')}/api/process-payment`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Idempotency-Key': crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2),
-        },
+        headers,
         body: JSON.stringify(payload),
       });
 

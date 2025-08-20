@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { initMercadoPago, Payment } from '@mercadopago/sdk-react';
 import cn from 'classnames';
 import styles from '../styles/MercadoPagoProvider.module.css';
@@ -11,6 +11,7 @@ import { useMercadoPagoSdk } from '../hooks/useMercadoPagoSdk';
 import { useMercadoPagoPreference } from '../hooks/useMercadoPagoPreference';
 import { useMercadoPagoBrickSubmit } from '../hooks/useMercadoPagoBrickSubmit';
 
+// Asegúrate de tener una sola instancia de MP
 export default function MercadoPagoProvider(props) {
   const {
     productId,
@@ -80,6 +81,45 @@ export default function MercadoPagoProvider(props) {
     hostUrl: typeof window !== 'undefined' ? window.location.origin : undefined,
     displayMode,
   });
+
+  const mpRef = useRef(null);
+
+  useEffect(() => {
+    try {
+      if (typeof window !== 'undefined' && window.MercadoPago && process.env.NEXT_PUBLIC_MP_PUBLIC_KEY) {
+        mpRef.current = new window.MercadoPago(process.env.NEXT_PUBLIC_MP_PUBLIC_KEY, {
+          locale: 'es-MX',
+        });
+        logInfo('SDK de MercadoPago inicializado correctamente');
+      }
+    } catch (e) {
+      logError('Error inicializando MercadoPago:', e);
+    }
+  }, []);
+
+  const initBrick = async ({ containerId, preferenceId, initialization = {}, customization = {}, callbacks = {} }) => {
+    if (!mpRef.current) {
+      logError('MercadoPago no inicializado');
+      return;
+    }
+    const bricksBuilder = mpRef.current.bricks();
+
+    // Si usas preferenceId, MP exige pasar mercadoPago (cuando se usa API global)
+    // bricksBuilder.create ya está ligado a mpRef.current, pero algunos bundles requieren prop explícita:
+    const options = {
+      initialization: {
+        ...initialization,
+        // Si usas preferenceId, inclúyelo aquí
+        ...(preferenceId ? { preferenceId } : {}),
+      },
+      customization,
+      callbacks,
+      // Fuerza la referencia explícita del objeto MP para evitar el error de consola
+      mercadoPago: mpRef.current,
+    };
+
+    await bricksBuilder.create('payment', containerId, options);
+  };
 
   const [displayError, setDisplayError] = useState(null);
   const [statusMsg, setStatusMsg] = useState('');

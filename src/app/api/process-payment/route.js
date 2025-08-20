@@ -13,6 +13,7 @@ import { paymentCircuitBreaker } from '../../../lib/circuit-breaker-pro.js';
 import { performanceMonitor } from '../../../lib/performance-monitor-pro.js';
 import { paymentQueue } from '../../../lib/queue-manager-pro.js';
 import { SupabaseSecurity } from '../../../lib/supabase-security';
+import { validateCsrfToken } from '../../../utils/csrf'; // <-- NUEVO
 
 // Inicializar el cliente de Supabase
 const supabaseUrl = process.env.SUPABASE_URL;
@@ -306,26 +307,18 @@ export async function POST(req) {
 
     logInfo(`Process-payment request received. IdempotencyKey: ${idempotencyKey}`);
 
-    // --- CSRF guard (no nested try needed) ---
-    const csrfToken = req.headers.get('X-CSRF-Token');
-    const expectedToken = req.cookies.get('csrf_token')?.value;
-    const isFramerOrProduction =
-      req.headers.get('referer')?.includes('framer.com') ||
-      process.env.NODE_ENV === 'production';
-
-    if (!isFramerOrProduction && expectedToken && csrfToken !== expectedToken) {
+    // --- CSRF guard unificado ---
+    try {
+      await validateCsrfToken(req);
+      logInfo(`CSRF validation passed or bypassed by policy`, { idempotencyKey });
+    } catch (csrfErr) {
       logSecurityEvent(
         'csrf_validation_failed',
-        { got: csrfToken, expected: expectedToken?.substring(0, 5) + '...' },
+        { error: csrfErr.message, idempotencyKey },
         'warn'
       );
       return NextResponse.json({ error: 'Validación de seguridad fallida' }, { status: 403 });
     }
-
-    logInfo(`CSRF validation ${isFramerOrProduction ? 'bypassed' : 'passed'} for ${idempotencyKey}`, {
-      isFramer: req.headers.get('referer')?.includes('framer.com'),
-      isProduction: process.env.NODE_ENV === 'production'
-    });
 
     // --- Parse and validate body ---
     const body = await req.json();
