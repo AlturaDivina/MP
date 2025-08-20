@@ -14,7 +14,12 @@ export default function Home({ searchParams }) {
     const urlParams = new URLSearchParams(window.location.search);
 
     const hideTitle = urlParams.get('hideTitle') === 'true';
-    const initialProductId = urlParams.get('initialProductId') || null;
+    // Normalize: accept initialProductId or productId, ignore empty string
+    const initialProductIdRaw =
+      urlParams.get('initialProductId') ?? urlParams.get('productId') ?? null;
+    const initialProductId =
+      initialProductIdRaw && String(initialProductIdRaw).trim() !== '' ? String(initialProductIdRaw) : null;
+
     const publicKey = urlParams.get('publicKey') || process.env.NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY;
 
     // URLs FIJAS DE ALTURA DIVINA
