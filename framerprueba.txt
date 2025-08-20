@@ -1,0 +1,320 @@
+import * as React from "react"
+import { addPropertyControls, ControlType } from "framer"
+
+interface MercadoPagoEmbedProps {
+    productId: string
+    publicKey: string
+    successUrl: string
+    pendingUrl: string
+    failureUrl: string
+    hideTitle: boolean
+    width: number | string
+    height: number | string
+    onRedirect?: (event: any) => void
+    sessionIdOverride?: string
+    displayMode?:
+        | "full"
+        | "cartIconOnly"
+        | "paymentFlowOnly"
+        | "sidebarOnly"
+        | "family"
+    initialStep?: number
+    cartIconColor?: string
+    usePageDefault?: boolean
+}
+
+export function MercadoPagoEmbedPruebas(
+    props: MercadoPagoEmbedProps
+): React.ReactElement {
+    const {
+        productId,
+        publicKey,
+        successUrl,
+        pendingUrl,
+        failureUrl,
+        hideTitle,
+        width,
+        height,
+        onRedirect,
+        sessionIdOverride,
+        displayMode,
+        initialStep,
+        cartIconColor,
+        // Para pruebas: forzamos por defecto que la página NO decida y que el modo sea "full"
+        usePageDefault = false,
+    } = props
+
+    const getOrCreateGlobalSessionId = React.useCallback(() => {
+        if (typeof window !== "undefined") {
+            const urlParams = new URLSearchParams(window.location.search)
+            const sessionFromUrl = urlParams.get("sessionId")
+            if (sessionFromUrl) return sessionFromUrl
+        }
+        if (typeof window !== "undefined" && window.sessionStorage) {
+            const storedId = sessionStorage.getItem("mp_global_session_id")
+            if (storedId) return storedId
+        }
+        const newSessionId = `session_${Date.now()}_${Math.random()
+            .toString(36)
+            .substr(2, 9)}`
+        if (typeof window !== "undefined" && window.sessionStorage) {
+            sessionStorage.setItem("mp_global_session_id", newSessionId)
+        }
+        return newSessionId
+    }, [])
+
+    const sessionId = React.useMemo(
+        () => sessionIdOverride || getOrCreateGlobalSessionId(),
+        [getOrCreateGlobalSessionId, sessionIdOverride]
+    )
+
+    React.useEffect(() => {
+        const handleMessage = (event: MessageEvent) => {
+            // Cambiado para el entorno de pruebas
+            if (!event.origin.includes("pruebasaltura.vercel.app")) {
+                return
+            }
+
+            if (event.data.type === "MP_PAYMENT_SUCCESS") {
+                if (onRedirect) {
+                    onRedirect({
+                        status: "success",
+                        redirectUrl: event.data.redirectUrl,
+                        data: event.data.paymentData,
+                    })
+                }
+                if (event.data.redirectUrl) {
+                    window.top.location.href = event.data.redirectUrl
+                }
+            } else if (event.data.type === "MP_PAYMENT_PENDING") {
+                if (onRedirect) {
+                    onRedirect({
+                        status: "pending",
+                        redirectUrl: event.data.redirectUrl,
+                        data: event.data.paymentData,
+                    })
+                }
+                if (event.data.redirectUrl) {
+                    window.top.location.href = event.data.redirectUrl
+                }
+            } else if (event.data.type === "MP_PAYMENT_FAILED") {
+                if (onRedirect) {
+                    onRedirect({
+                        status: "failed",
+                        redirectUrl: event.data.redirectUrl,
+                        data: event.data.paymentData,
+                    })
+                }
+                if (event.data.redirectUrl) {
+                    window.top.location.href = event.data.redirectUrl
+                }
+            } else if (event.data.type === "CART_UPDATE") {
+                if (typeof window !== "undefined") {
+                    const updateEvent = new CustomEvent(
+                        "ALTURA_DIVINA_CART_UPDATE",
+                        {
+                            detail: { source: "mercadopago_iframe_tests", sessionId },
+                        }
+                    )
+                    window.dispatchEvent(updateEvent)
+                }
+            }
+        }
+
+        window.addEventListener("message", handleMessage)
+        return () => {
+            window.removeEventListener("message", handleMessage)
+        }
+    }, [onRedirect, successUrl, pendingUrl, failureUrl, sessionId])
+
+    // Base de pruebas
+    const baseUrl = "https://pruebasaltura.vercel.app/"
+    const params: Record<string, string> = {
+        initialProductId: productId || "",
+        publicKey: publicKey || "",
+        successUrl: successUrl || "",
+        pendingUrl: pendingUrl || "",
+        failureUrl: failureUrl || "",
+        hideTitle: hideTitle ? "true" : "false",
+        isInIframe: "true",
+        sessionId: sessionId,
+    }
+
+    const allowedDisplayModes = new Set([
+        "full",
+        "family",
+        "cartIconOnly",
+        "paymentFlowOnly",
+        "sidebarOnly",
+    ])
+    const normalizedDisplayMode = React.useMemo(() => {
+        const raw = (displayMode ?? "").toString().trim()
+        return allowedDisplayModes.has(raw) ? raw : undefined
+    }, [displayMode])
+
+    // Para pruebas: por defecto forzamos full
+    const effectiveDisplayMode =
+        !usePageDefault
+            ? normalizedDisplayMode || "full"
+            : normalizedDisplayMode
+
+    if (!usePageDefault && effectiveDisplayMode) {
+        params["displayMode"] = effectiveDisplayMode
+    }
+    if (
+        !usePageDefault &&
+        effectiveDisplayMode === "paymentFlowOnly" &&
+        initialStep != null
+    ) {
+        params["initialStep"] = String(initialStep)
+    }
+    if (
+        !usePageDefault &&
+        cartIconColor &&
+        effectiveDisplayMode === "cartIconOnly"
+    ) {
+        params["cartIconColor"] = cartIconColor
+    }
+
+    const queryParams = new URLSearchParams(params).toString()
+    const iframeSrc = `${baseUrl}?${queryParams}`
+
+    console.log(
+        "[MP Embed Pruebas] displayMode prop:",
+        displayMode,
+        "usePageDefault:",
+        usePageDefault,
+        "→ normalized:",
+        normalizedDisplayMode,
+        "→ effective:",
+        effectiveDisplayMode,
+        "→ iframeSrc:",
+        iframeSrc
+    )
+
+    return (
+        <iframe
+            src={iframeSrc}
+            width={width}
+            height={height}
+            style={{
+                border: "none",
+                borderRadius: "8px",
+                overflow: "hidden",
+            }}
+            allow="payment; allow-top-navigation-by-user-activation"
+        />
+    )
+}
+
+addPropertyControls(MercadoPagoEmbedPruebas, {
+    productId: {
+        title: "Product ID",
+        type: ControlType.String,
+        defaultValue: "2",
+    },
+    publicKey: {
+        title: "MP Public Key",
+        type: ControlType.String,
+        defaultValue: "",
+    },
+    successUrl: {
+        title: "Success URL",
+        type: ControlType.String,
+        defaultValue: "https://alturadivina.com/confirmacion-de-compra",
+    },
+    pendingUrl: {
+        title: "Pending URL",
+        type: ControlType.String,
+        defaultValue: "https://alturadivina.com/proceso-de-compra",
+    },
+    failureUrl: {
+        title: "Failure URL",
+        type: ControlType.String,
+        defaultValue: "https://alturadivina.com/error-de-compra",
+    },
+    hideTitle: {
+        title: "Hide Title",
+        type: ControlType.Boolean,
+        defaultValue: false,
+    },
+    width: {
+        title: "Width",
+        type: ControlType.Number,
+        defaultValue: 400,
+        min: 100,
+        max: 2000,
+        step: 10,
+    },
+    height: {
+        title: "Height",
+        type: ControlType.Number,
+        defaultValue: 600,
+        min: 100,
+        max: 3000,
+        step: 10,
+    },
+    onRedirect: {
+        title: "On Redirect",
+        type: ControlType.EventHandler,
+    },
+    sessionIdOverride: {
+        title: "Session ID (opcional)",
+        type: ControlType.String,
+        defaultValue: "",
+    },
+    usePageDefault: {
+        title: "Use Page Default",
+        type: ControlType.Boolean,
+        // Para pruebas: default false
+        defaultValue: false,
+    },
+    displayMode: {
+        title: "Display Mode",
+        type: ControlType.Enum,
+        options: [
+            "full",
+            "cartIconOnly",
+            "paymentFlowOnly",
+            "sidebarOnly",
+            "family",
+        ],
+        // Para pruebas: default "full"
+        defaultValue: "full",
+        hidden(props) {
+            return props.usePageDefault === true
+        },
+    },
+    cartIconColor: {
+        title: "Cart Icon Color",
+        type: ControlType.Color,
+        defaultValue: "#333333",
+        hidden(props) {
+            return props.usePageDefault === true || props.displayMode !== "cartIconOnly"
+        },
+    },
+    initialStep: {
+        title: "Initial Step (PaymentFlow)",
+        type: ControlType.Number,
+        defaultValue: 1,
+        min: 1,
+        step: 1,
+        hidden(props) {
+            return props.usePageDefault === true || props.displayMode !== "paymentFlowOnly"
+        },
+    },
+})
+
+MercadoPagoEmbedPruebas.defaultProps = {
+    productId: "2",
+    publicKey: "",
+    successUrl: "https://alturadivina.com/confirmacion-de-compra",
+    pendingUrl: "https://alturadivina.com/proceso-de-compra",
+    failureUrl: "https://alturadivina.com/error-de-compra",
+    hideTitle: false,
+    width: 300,
+    height: 500,
+    // Para pruebas: forzado por defecto
+    usePageDefault: false,
+    displayMode: "full",
+}
