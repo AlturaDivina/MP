@@ -2,6 +2,7 @@
 
 import { Suspense, useState, useEffect } from 'react'
 import PaymentFlow from '../components/PaymentFlow'
+import PaymentFlowUnified from '../components/PaymentFlowUnified'
 import MercadoPagoProvider from '../components/MercadoPagoProvider'
 import CartIcon from '../components/CartIcon'; // Added
 import CartSidebar from '../components/CartSidebar'; // Added
@@ -109,7 +110,15 @@ export default function Home({ searchParams }) {
   if (params.displayMode === 'paymentFlowOnly') {
     return (
       <div style={{ padding: '20px' }}>
-        <PaymentFlow
+        {/* <PaymentFlow
+          {...paymentFlowProps}
+          initialProductId={params.initialProductId}
+          initialStep={params.initialStep}
+          displayMode="paymentFlowOnly"
+          cartIconColor={params.cartIconColor}
+        /> */}
+
+         <PaymentFlowUnified
           {...paymentFlowProps}
           initialProductId={params.initialProductId}
           initialStep={params.initialStep}
@@ -123,7 +132,15 @@ export default function Home({ searchParams }) {
   return (
     <div>
       <Suspense fallback={<div style={{ textAlign: 'center', padding: '20px' }}>Cargando componente de pago...</div>}>
-        <PaymentFlow
+        {/* <PaymentFlow
+          {...paymentFlowProps}
+          initialProductId={params.initialProductId}
+          initialStep={params.initialStep}
+          displayMode={params.displayMode}
+          cartIconColor={params.cartIconColor} // Añadir esto
+        /> */}
+
+         <PaymentFlowUnified
           {...paymentFlowProps}
           initialProductId={params.initialProductId}
           initialStep={params.initialStep}

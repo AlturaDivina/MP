@@ -2,6 +2,7 @@
 
 import React, { useEffect } from 'react';
 import PaymentFlow from '../../components/PaymentFlow';
+import PaymentFlowUnified from '../../components/PaymentFlowUnified';
 import { useCart } from '../../hooks/useCart';
 import { useRouter } from 'next/navigation';
 import styles from '../../styles/Checkout.module.css';
@@ -29,7 +30,17 @@ export default function Checkout() {
   
   return (
     <div className={styles.checkoutContainer}>
-      <PaymentFlow
+      {/* <PaymentFlow
+        apiBaseUrl={process.env.NEXT_PUBLIC_HOST_URL}
+        productsEndpoint="/api/products"
+        mercadoPagoPublicKey={process.env.NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY}
+        successUrl="https://alturadivina.com/confirmacion-de-compra"
+        pendingUrl="https://alturadivina.com/proceso-de-compra"
+        failureUrl="https://alturadivina.com/error-de-compra"
+        initialStep={2} // Start at step 2 (customer information)
+      /> */}
+
+       <PaymentFlowUnified
         apiBaseUrl={process.env.NEXT_PUBLIC_HOST_URL}
         productsEndpoint="/api/products"
         mercadoPagoPublicKey={process.env.NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY}

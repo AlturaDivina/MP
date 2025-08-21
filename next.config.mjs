@@ -12,7 +12,11 @@ const nextConfig = {
           {
             key: 'Content-Security-Policy',
             value: `
-              default-src 'self' 
+              default-src 'self'
+                http://localhost:3000
+                http://127.0.0.1:3000
+                http://localhost:3001
+                http://127.0.0.1:3001
                 https://*.mercadopago.com 
                 https://*.mercadopago.com.ar 
                 https://*.mercadopago.com.br 
@@ -70,7 +74,11 @@ const nextConfig = {
                 https://fonts.googleapis.com 
                 https://fonts.gstatic.com;
                 
-              connect-src 'self' 
+              connect-src 'self'
+                http://localhost:3000
+                http://127.0.0.1:3000
+                http://localhost:3001
+                http://127.0.0.1:3001
                 https://*.mercadopago.com 
                 https://*.mercadopago.com.ar 
                 https://*.mercadopago.com.br 
@@ -84,7 +92,11 @@ const nextConfig = {
                 https://*.mercadolivre.com 
                 https://api.mercadopago.com;
                 
-              frame-src 'self' 
+              frame-src 'self'
+                http://localhost:3000
+                http://127.0.0.1:3000
+                http://localhost:3001
+                http://127.0.0.1:3001
                 https://*.mercadopago.com 
                 https://*.mercadopago.com.ar 
                 https://*.mercadopago.com.br 
