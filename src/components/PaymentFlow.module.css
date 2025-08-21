@@ -6,6 +6,8 @@
   box-sizing: border-box;
   overflow: hidden;
 
+  padding-bottom: 100px;
+
   /* Usa unidades dinámicas */
   max-height: 100dvh;      /* dinámico: ajusta al alto visible */
   overflow-y: auto;
