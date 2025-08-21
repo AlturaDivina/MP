@@ -2,12 +2,19 @@
   width: 100%;
   max-width: 600px;
   margin: 0 auto;
-
-  /* Nuevo */
-  max-height: 100vh;       /* no rebasar alto de la pantalla */
-  overflow-y: auto;        /* permitir scroll interno */
-  padding-bottom: 80px;    /* deja espacio para botones fijos */
+  padding: 16px;
   box-sizing: border-box;
+
+  /* Usa unidades dinámicas */
+  max-height: 100dvh;      /* dinámico: ajusta al alto visible */
+  overflow-y: auto;
+}
+
+@media (max-width: 768px) {
+  .mp-form-container {
+    max-height: calc(100vh - 40px); /* deja margen arriba/abajo */
+    padding: 12px;
+  }
 }
 
 .mp-form-group {
