@@ -37,6 +37,8 @@
 .mp-product-selection-container {
   max-width: 650px;
   margin: 0 auto 2rem;
+  max-height: 100dvh;
+  padding-bottom: 100px;
 }
 
 .mp-form-group {
