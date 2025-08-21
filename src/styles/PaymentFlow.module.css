@@ -191,6 +191,7 @@
   background-color: var(--mp-primary-button-color, #F26F32) !important;
   color: white;
   font-weight: 600;
+  font-size: 12px;
 }
 
 .mp-button.mp-primary:hover {
@@ -201,6 +202,7 @@
 .mp-button.mp-secondary {
   background-color: var(--mp-secondary-button-color, #E5E5E5) !important;
   color: #333;
+  font-size: 12px;
 }
 
 .mp-button.mp-secondary:hover {
@@ -446,11 +448,11 @@
 
 /* Form actions (buttons) */
 .mp-form-actions {
-  display: flex;
-  justify-content: space-between;
-  margin-top: 2rem;
+  position: sticky;
+  bottom: 0;
+  background: #fff;
+  padding: 10px 0;
 }
-
 .mp-form-actions .mp-button {
   min-width: 120px;
   padding: 0.85rem 1.5rem;

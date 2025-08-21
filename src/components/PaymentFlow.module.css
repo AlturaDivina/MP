@@ -2,6 +2,12 @@
   width: 100%;
   max-width: 600px;
   margin: 0 auto;
+
+  /* Nuevo */
+  max-height: 100vh;       /* no rebasar alto de la pantalla */
+  overflow-y: auto;        /* permitir scroll interno */
+  padding-bottom: 80px;    /* deja espacio para botones fijos */
+  box-sizing: border-box;
 }
 
 .mp-form-group {
@@ -148,4 +154,15 @@
   width: 100%;             /* igual al ancho del título */
   height: 3px;
   background-color: var(--mp-primary-button-color, #F26F32);
+}
+
+input[type=number]::-webkit-outer-spin-button,
+input[type=number]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input[type=number] {
+  -moz-appearance: textfield;
+  appearance: textfield;
 }

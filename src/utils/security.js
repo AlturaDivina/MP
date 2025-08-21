@@ -3,127 +3,89 @@
  */
 
 /**
- * Sanitiza una entrada eliminando caracteres potencialmente peligrosos
- * y truncando para evitar desbordamientos
- * 
- * @param {string|object|array} input - Entrada a sanitizar
- * @param {number} maxLength - Longitud máxima permitida (por defecto 1000)
- * @returns {string|object|array} - Entrada sanitizada
+ * Sanitiza una entrada genérica
  */
 export function sanitizeInput(input, maxLength = 1000) {
   const str = String(input ?? '');
-  const cleaned = str
+  return str
     .normalize('NFKC')
-    .replace(/[\u0000-\u001F\u007F]/g, '')
-    // elimina caracteres claramente peligrosos pero conserva espacios
-    .replace(/[<>`$]/g, '')
-    .replace(/\s{2,}/g, ' ')
-    .trim()
-    .slice(0, maxLength);
-  return cleaned;
+    .replace(/[\u0000-\u001F\u007F]/g, '') // quita caracteres de control
+    .replace(/[<>`$]/g, '')                // quita símbolos peligrosos
+    .replace(/\s{2,}/g, ' ')               // colapsa espacios múltiples
+    .slice(0, maxLength);                  // 👈 ya no usamos trim()
 }
 
 /**
- * Sanitiza una cadena eliminando caracteres potencialmente peligrosos
- * 
- * @param {string} str - Cadena a sanitizar
- * @param {number} maxLength - Longitud máxima permitida
- * @returns {string} - Cadena sanitizada
+ * Sanitiza string plano
  */
 function sanitizeString(str, maxLength) {
-  if (typeof str !== 'string') {
-    return str;
-  }
+  if (typeof str !== 'string') return str;
+  if (str.length > maxLength) str = str.substring(0, maxLength);
 
-  // Truncar si es demasiado largo
-  if (str.length > maxLength) {
-    str = str.substring(0, maxLength);
-  }
-
-  // Eliminar scripts y elementos HTML potencialmente peligrosos
-  str = str
+  return str
     .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
     .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '')
     .replace(/<img[^>]*>/gi, '[imagen]')
-    .replace(/<[^>]*>/g, ''); // Eliminar todas las etiquetas HTML restantes
-
-  return str;
+    .replace(/<[^>]*>/g, '');
 }
 
 /**
- * Valida que una entrada solo contenga caracteres alfanuméricos y algunos especiales permitidos
- * 
- * @param {string} input - Entrada a validar
- * @param {boolean} allowSpecial - Si se permiten caracteres especiales
- * @returns {boolean} - Si la entrada es válida
+ * Valida alfanumérico
  */
 export function validateAlphanumeric(input, allowSpecial = false) {
   if (typeof input !== 'string') return false;
-  
-  const pattern = allowSpecial 
+
+  const pattern = allowSpecial
     ? /^[a-zA-Z0-9 _.,-@()[\]{}|:;!?'"#$%&/=+*]*$/
     : /^[a-zA-Z0-9 _.-]*$/;
-  
+
   return pattern.test(input);
 }
 
 /**
- * Función específica para nombres (más restrictiva)
+ * Nombres (letras, espacios, acentos, ñ, guión/apóstrofo)
  */
 export function sanitizeName(value, maxLength = 100) {
   const str = String(value ?? '');
-  const cleaned = str
+  return str
     .normalize('NFKC')
     .replace(/[\u0000-\u001F\u007F]/g, '')
-    // letras, espacios, guión y apóstrofo
     .replace(/[^A-Za-zÀ-ÿ\u00f1\u00d1\s\-']/g, '')
     .replace(/\s{2,}/g, ' ')
-    .trim()
-    .slice(0, maxLength);
-  return cleaned;
+    .slice(0, maxLength); // 👈 sin trim
 }
 
 /**
- * Función específica para direcciones
+ * Direcciones (acepta letras, números, espacios, acentos y símbolos típicos . , - # ° / \ ')
  */
 export function sanitizeAddress(value, maxLength = 200) {
   const str = String(value ?? '');
-  const cleaned = str
+  return str
     .normalize('NFKC')
-    // elimina caracteres de control
     .replace(/[\u0000-\u001F\u007F]/g, '')
-    // whitelist: letras (incluye acentos y ñ), números, espacios y puntuación típica de direcciones
-    // . , - # ° / \ '
     .replace(/[^0-9A-Za-zÀ-ÿ\u00f1\u00d1\s\.,\-#°/\\']/g, '')
-    // colapsa espacios múltiples
     .replace(/\s{2,}/g, ' ')
-    .trim()
-    .slice(0, maxLength);
-  return cleaned;
+    .slice(0, maxLength); // 👈 sin trim
 }
 
 /**
- * Función específica para teléfonos
+ * Teléfonos (dígitos, espacios, +, (), -)
  */
 export function sanitizePhone(input) {
   if (typeof input !== 'string') return '';
-  
-  // Solo permitir números, espacios, guiones, paréntesis y signo +
-  return input.replace(/[^0-9\s\-\(\)\+]/g, '').trim();
+  return input.replace(/[^0-9\s\-\(\)\+]/g, '').slice(0, 20); // 👈 conserva espacios
 }
 
 /**
- * Función específica para emails
+ * Email (permitimos espacios internos, pero se limpian al normalizar)
  */
 export function sanitizeEmail(input) {
   if (typeof input !== 'string') return '';
-  
-  // Patrón básico para email (más permisivo)
-  return input.replace(/[<>'"]/g, '').trim().toLowerCase();
+  return input.replace(/[<>'"]/g, '').toLowerCase();
 }
 
 /**
- * Variantes para escritura: preservan espacios finales (no usan .trim())
+ * Variantes typing (permiten espacios al escribir)
  */
 export function sanitizeInputTyping(input, maxLength = 1000) {
   const str = String(input ?? '');
@@ -132,7 +94,7 @@ export function sanitizeInputTyping(input, maxLength = 1000) {
     .replace(/[\u0000-\u001F\u007F]/g, '')
     .replace(/[<>`$]/g, '')
     .replace(/\s{2,}/g, ' ')
-    .slice(0, maxLength); // sin trim
+    .slice(0, maxLength); // 👈 sin trim
 }
 
 export function sanitizeNameTyping(value, maxLength = 100) {
@@ -142,20 +104,18 @@ export function sanitizeNameTyping(value, maxLength = 100) {
     .replace(/[\u0000-\u001F\u007F]/g, '')
     .replace(/[^A-Za-zÀ-ÿ\u00f1\u00d1\s\-']/g, '')
     .replace(/\s{2,}/g, ' ')
-    .slice(0, maxLength); // sin trim
+    .slice(0, maxLength); // 👈 sin trim
 }
 
+/**
+ * Variante typing para direcciones
+ */
 export function sanitizeAddressTyping(value, maxLength = 200) {
   const str = String(value ?? '');
   return str
     .normalize('NFKC')
     .replace(/[\u0000-\u001F\u007F]/g, '')
-    // whitelist con espacios permitidos (\s). El \ en la clase permite la barra invertida literal.
     .replace(/[^0-9A-Za-zÀ-ÿ\u00f1\u00d1\s\.,\-#°/\\']/g, '')
     .replace(/\s{2,}/g, ' ')
-    .slice(0, maxLength); // sin trim
+    .slice(0, maxLength); // 👈 sin trim
 }
-
-/**
- * Exportar otras funciones de seguridad según sea necesario
- */

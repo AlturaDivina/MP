@@ -502,12 +502,12 @@ export default function PaymentFlowUnified({
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: 8,
-                  padding: '6px 12px',
+                  padding: '6px 8px',
                   borderRadius: 999,
                   border: '1px solid #e5e7eb',
                   background: '#f7f7f7',
                   color: '#6b7280',
-                  fontSize: 14,
+                  fontSize: 12,
                   lineHeight: 1,
                   userSelect: 'none',
                   cursor: 'default',
@@ -979,7 +979,16 @@ export default function PaymentFlowUnified({
 function QtyPill({ qty, onDec, onInc, onChange }) {
   return (
     <div style={ux.pill}>
-      <button style={ux.pillBtn} onClick={onDec} aria-label="menos">−</button>
+      {qty > 0 ? (
+        <button style={ux.pillBtn} onClick={onDec} aria-label="menos">
+          −
+        </button>
+      ) : (
+        <button style={ux.pillBtn} onClick={onDec} aria-label="eliminar">
+          🗑️
+        </button>
+      )}
+
       <input
         type="number"
         min={0}
@@ -988,7 +997,10 @@ function QtyPill({ qty, onDec, onInc, onChange }) {
         style={ux.pillInput}
         aria-label="cantidad"
       />
-      <button style={ux.pillBtn} onClick={onInc} aria-label="más">＋</button>
+
+      <button style={ux.pillBtn} onClick={onInc} aria-label="más">
+        ＋
+      </button>
     </div>
   );
 }
@@ -1050,17 +1062,48 @@ const ux = {
   pInfo: { display: 'grid', gap: 4, maxWidth: '70%' },
   pName: { fontWeight: 600 },
   pDesc: { color: '#6b7280', fontSize: 13 },
-  pPrice: { color: '#111827', fontWeight: 700 },
+  pPrice: { color: '#111827', fontWeight: 700, fontSize: 14 },
   pRight: { display: 'flex', alignItems: 'center' },
 
-  pill: { display: 'flex', alignItems: 'center', gap: 6, background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 999, padding: '6px 8px' },
-  pillBtn: { width: 28, height: 28, borderRadius: 8, border: '1px solid #e5e7eb', background: '#fff', cursor: 'pointer' },
-  pillInput: { width: 44, height: 28, borderRadius: 8, border: '1px solid #e5e7eb', textAlign: 'center' },
+ pill: {
+    display: "flex",
+    alignItems: "center",
+    gap: 5,
+    background: "#F97316", // naranja (tailwind orange-500)
+    borderRadius: 999,
+    padding: "4px 8px",
+  },
+  pillBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    border: "none",
+    background: "transparent",
+    cursor: "pointer",
+    color: "#fff", // texto/icono en blanco para contraste
+    fontSize: 16,
+    fontWeight: "bold",
+  },
+   pillInput: {
+    width: 44,
+    height: 28,
+    borderRadius: 8,
+    border: "none",
+    textAlign: "center",
+    background: "transparent",
+    color: "#fff",
+    fontWeight: "bold",
+    fontSize: 14,
 
+    // 👇 quitar flechas arriba/abajo en inputs type="number"
+    MozAppearance: "textfield", // Firefox
+    },
   addPill: { border: `1px solid ${ACCENT}`, color: ACCENT, background: '#fff', padding: '8px 12px', borderRadius: 999, cursor: 'pointer', fontWeight: 700 },
 
-  totalsBox: { marginTop: 8, paddingTop: 8, borderTop: '1px dashed #e5e7eb', display: 'grid', gap: 6, maxWidth: 360, marginLeft: 'auto' },
+  totalsBox: { marginTop: 8, paddingTop: 8, borderTop: '1px dashed #e5e7eb', display: 'grid', gap: 6, maxWidth: 360, marginLeft: 'auto', fontSize: 14 },
   line: { display: 'flex', justifyContent: 'space-between' },
 
   actionsRow: { display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 10 },
+
+  
 };
