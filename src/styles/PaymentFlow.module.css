@@ -7,6 +7,35 @@
   color: #333;
 }
 
+.mp-page-header {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  max-width: 630px;
+  margin: 0 auto;
+  position: relative;
+}
+
+.mp-back-button {
+  position: absolute;
+  left: 0;
+  background-color: #f5f5f5;
+  color: #333;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  padding: 6px 14px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+.mp-back-button:hover {
+  background-color: #e0e0e0;
+  border-color: #999;
+  color: #000;
+}
+
 /* Estilos mejorados para el resumen y confirmación del pedido */
 .mp-page-title {
   font-family: 'Playfair Display SC', 'Bodoni Moda', Georgia, serif;

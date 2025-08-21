@@ -421,7 +421,17 @@ export default function PaymentFlowUnified({
   // === UI unificada ===
   return (
     <div className={cn(styles['mp-container'], className)} style={{ ...containerStyles }}>
-      {!hideTitle && <h2 className={styles['mp-page-title']}>Compra</h2>}
+     {currentStep === 1 && !hideTitle && (
+      <div className={styles['mp-page-header']}>
+        <button
+          className={styles['mp-back-button']}
+          onClick={() => window.location.href = 'https://alturadivina.com/reposado-productpage'}
+        >
+          ← Regresar
+        </button>
+        <h2 className={styles['mp-page-title']}>Compra</h2>
+      </div>
+    )}
 
       {/* Paso 1: Selección (UI mínima) */}
       {currentStep === 1 && (
