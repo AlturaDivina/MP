@@ -4,6 +4,7 @@
   margin: 0 auto;
   padding: 16px;
   box-sizing: border-box;
+  overflow: hidden;
 
   /* Usa unidades dinámicas */
   max-height: 100dvh;      /* dinámico: ajusta al alto visible */

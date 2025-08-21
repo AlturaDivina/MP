@@ -1,3 +1,5 @@
+
+
 /* Estilos para el flujo de pago */
 .mp-container {
   font-family: 'Inter', sans-serif;
@@ -448,11 +450,11 @@
 
 /* Form actions (buttons) */
 .mp-form-actions {
-  position: sticky;
-  bottom: 0;
-  background: #fff;
-  padding: 10px 0;
+  display: flex;
+  justify-content: space-between;
+  margin-top: 2rem;
 }
+
 .mp-form-actions .mp-button {
   min-width: 120px;
   padding: 0.85rem 1.5rem;
