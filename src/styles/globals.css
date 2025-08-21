@@ -219,7 +219,3 @@ input, select, textarea {
   border-top: 4px solid #555 !important;
 }
 
-html, body, #root {
-  height: 100dvh; /* ocupa toda la altura visible */
-  margin: 0;
-}
