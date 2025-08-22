@@ -30,10 +30,31 @@
   transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
 }
 
-.mp-back-button:hover {
-  background-color: #e0e0e0;
-  border-color: #999;
-  color: #000;
+.mp-back-button {
+  display: none; /* oculto por defecto */
+}
+
+@media screen and (max-width: 389px) {
+  .mp-back-button {
+    display: inline-flex;
+    background-color: #f9f9f9;
+    color: #333;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    padding: 6px 14px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s ease;
+  }
+
+  .mp-back-button:hover {
+    background-color: #ececec;
+    border-color: #999;
+    color: #000;
+  }
 }
 
 /* Estilos mejorados para el resumen y confirmación del pedido */
