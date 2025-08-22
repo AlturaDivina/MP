@@ -34,7 +34,7 @@
   display: none; /* oculto por defecto */
 }
 
-@media screen and (max-width: 389px) {
+@media screen and (max-width: 430px) {
   .mp-back-button {
     display: inline-flex;
     background-color: #f9f9f9;
