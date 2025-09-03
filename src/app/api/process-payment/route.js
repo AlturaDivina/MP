@@ -58,6 +58,7 @@ async function processMercadoPagoPayment({
   isMultipleOrder,
   idempotencyKey,
   displayMode, // <-- NUEVO
+  ipAddress,
 }) {
   const mode = normalizeDisplayMode(displayMode);
   const isFF = mode === 'family';
@@ -164,6 +165,10 @@ async function processMercadoPagoPayment({
   const preferenceClient = new Preference(client);
   
   // Crear preferencia con el cliente usando preferenceItems
+  // Normalizar direcciones (shipping vs billing)
+  const shippingAddr = payerData?.shipping_address || payerData?.address || null;
+  const billingAddr = payerData?.billing_address || (payerData?.billing_same_as_shipping ? shippingAddr : payerData?.address) || null;
+
   const preferenceResponse = await preferenceClient.create({
     body: {
       items: preferenceItems,  // Versión con currency_id
@@ -173,23 +178,23 @@ async function processMercadoPagoPayment({
         surname: payerData?.last_name || '',
         identification: payerData?.identification || {},
         phone: phoneFormatted,  // Ahora está correctamente definida
-        address: payerData?.address ? {
-          street_name: payerData.address.street_name || '',
-          street_number: payerData.address.street_number ? String(payerData.address.street_number) : '',
-          zip_code: payerData.address.zip_code || ''
+        address: billingAddr ? {
+          street_name: billingAddr.street_name || '',
+          street_number: billingAddr.street_number ? String(billingAddr.street_number) : '',
+          zip_code: billingAddr.zip_code || ''
         } : {}
       },
-      shipments: payerData?.address
+      shipments: shippingAddr
         ? {
             mode: "custom",
             cost: SHIPPING_FEE,
             receiver_address: {
-              street_name: payerData.address.street_name || '',
-              street_number: payerData.address.street_number ? String(payerData.address.street_number) : '',
-              zip_code: payerData.address.zip_code || '',
-              city_name: payerData.address.city_name || '',
-              state_name: payerData.address.state_name || '',
-              country_name: payerData.address.country_name || 'México'
+              street_name: shippingAddr.street_name || '',
+              street_number: shippingAddr.street_number ? String(shippingAddr.street_number) : '',
+              zip_code: shippingAddr.zip_code || '',
+              city_name: shippingAddr.city_name || shippingAddr.city || '',
+              state_name: shippingAddr.state_name || shippingAddr.state || '',
+              country_name: shippingAddr.country_name || shippingAddr.country || 'México'
             }
           }
         : undefined,
@@ -217,31 +222,60 @@ async function processMercadoPagoPayment({
   
   // ✅ CRÍTICO: Asegurar que external_reference se establece correctamente EN LA RAÍZ
   const paymentResponse = await paymentClient.create({
-    body: {
-      token: token,
-      description: isMultipleOrder 
-        ? `Pedido de ${orderItems.length} productos` 
-        : `${orderItems[0].name || 'Producto'}`,
-      transaction_amount: finalAmount,
-      installments: parseInt(installments),
-      payment_method_id: payment_method_id,
-      issuer_id: issuer_id,
-      external_reference: idempotencyKey, // ✅ ESTO ES CRÍTICO para el webhook - EN LA RAÍZ
-      payer: {
-        email: payerEmail,
-        identification: payerData?.identification || {}
-      },
-      additional_info: {
-        items: paymentItems,
-        // ❌ NO poner external_reference aquí - eso causa el error 400
+    body: (() => {
+      const body = {
+        token: token,
+        description: isMultipleOrder
+          ? `Pedido de ${orderItems.length} productos`
+          : `${orderItems[0].name || 'Producto'}`,
+        transaction_amount: finalAmount,
+        installments: parseInt(installments),
+        payment_method_id: payment_method_id,
+        issuer_id: issuer_id,
+        external_reference: idempotencyKey,
         payer: {
-          first_name: payerData?.first_name,
-          last_name: payerData?.last_name,
-          phone: phoneFormatted
+          email: payerEmail,
+          identification: payerData?.identification || {}
+        },
+        additional_info: {
+          items: paymentItems,
+          payer: {
+            first_name: payerData?.first_name,
+            last_name: payerData?.last_name,
+            phone: phoneFormatted,
+            address: billingAddr ? {
+              zip_code: billingAddr.zip_code || '',
+              street_name: billingAddr.street_name || '',
+              street_number: billingAddr.street_number ? String(billingAddr.street_number) : ''
+            } : undefined,
+          },
+          // IMPORTANTE: La API de pagos NO acepta country_name dentro de additional_info.shipments.receiver_address
+          shipments: shippingAddr ? {
+            receiver_address: {
+              zip_code: shippingAddr.zip_code || '',
+              street_name: shippingAddr.street_name || '',
+              street_number: shippingAddr.street_number ? String(shippingAddr.street_number) : '',
+              city_name: shippingAddr.city || shippingAddr.city_name || '',
+              state_name: shippingAddr.state || shippingAddr.state_name || ''
+              // country_name eliminado para evitar "The name of the following parameters is wrong"
+            }
+          } : undefined,
+          ip_address: ipAddress || ''
         }
-        // external_reference: idempotencyKey // ❌ NO aquí - causaba el error
-      }
+      };
+      return body;
+    })()
+  }).catch(err => {
+    // Normalizar error de parámetros inválidos de MP para que no caiga como 500 genérico ocultando la causa
+    const rawMsg = err?.message || '';
+    if (rawMsg.includes('The name of the following parameters is wrong')) {
+      // Re-lanzar con prefijo identificable
+      const e = new Error(`Error de MercadoPago: Parámetros inválidos en request de pago (${rawMsg})`);
+      e.original = rawMsg;
+      e.type = 'MERCADOPAGO_PARAM_ERROR';
+      throw e;
     }
+    throw err;
   });
 
   // Return all the data the frontend might need
@@ -426,6 +460,8 @@ export async function POST(req) {
     }
 
     // --- Procesar pago en MP (valida internamente según displayMode) ---
+    const ipAddress = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || '';
+
     const paymentResponse = await processMercadoPagoPayment({
       transaction_amount: totalAmount,
       token,
@@ -438,6 +474,7 @@ export async function POST(req) {
       isMultipleOrder,
       idempotencyKey,
       displayMode, // <-- importante
+      ipAddress,
     });
 
     console.log(`🔍 CONSOLE DEBUG [${idempotencyKey}] Payment response:`, {
@@ -507,13 +544,22 @@ export async function POST(req) {
               age: userData.calculatedAge?.toString() || '0',
               email: userData.email,
               phone: userData.phone,
-              address: {
-                city: userData.address?.city || '',
-                state: userData.address?.state || '',
-                country: userData.address?.country || 'Mexico',
-                zip_code: userData.address?.zip_code || '',
-                street_name: userData.address?.street_name || '',
-                street_number: userData.address?.street_number || ''
+              shipping_address: {
+                city: userData.shipping_address?.city || userData.address?.city || '',
+                state: userData.shipping_address?.state || userData.address?.state || '',
+                country: userData.shipping_address?.country || userData.address?.country || 'Mexico',
+                zip_code: userData.shipping_address?.zip_code || userData.address?.zip_code || '',
+                street_name: userData.shipping_address?.street_name || userData.address?.street_name || '',
+                street_number: userData.shipping_address?.street_number || userData.address?.street_number || ''
+              },
+              billing_same_as_shipping: userData.billing_same_as_shipping !== false,
+              billing_address: {
+                city: (userData.billing_address?.city || (userData.billing_same_as_shipping ? userData.shipping_address?.city : '')) || '',
+                state: (userData.billing_address?.state || (userData.billing_same_as_shipping ? userData.shipping_address?.state : '')) || '',
+                country: (userData.billing_address?.country || (userData.billing_same_as_shipping ? userData.shipping_address?.country : '')) || 'Mexico',
+                zip_code: (userData.billing_address?.zip_code || (userData.billing_same_as_shipping ? userData.shipping_address?.zip_code : '')) || '',
+                street_name: (userData.billing_address?.street_name || (userData.billing_same_as_shipping ? userData.shipping_address?.street_name : '')) || '',
+                street_number: (userData.billing_address?.street_number || (userData.billing_same_as_shipping ? userData.shipping_address?.street_number : '')) || ''
               },
               isOver18: userData.isOver18 === true,
               last_name: userData.last_name || '',
@@ -811,6 +857,19 @@ export async function POST(req) {
           idempotencyKey,
           details: error.cause || error.data,
           code: 'AMOUNT_TOO_LOW'
+        },
+        { status: 400 }
+      );
+    }
+
+    // Error de parámetros inválidos detectado al crear el pago
+    if (error.type === 'MERCADOPAGO_PARAM_ERROR') {
+      return NextResponse.json(
+        {
+          error: 'Error en parámetros enviados a Mercado Pago (ver detalles).',
+          details: error.original || error.message,
+          idempotencyKey,
+          code: 'MERCADOPAGO_PARAM_ERROR'
         },
         { status: 400 }
       );

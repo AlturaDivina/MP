@@ -66,6 +66,7 @@ export default function PaymentFlowUnified({
   const [confirmedOrder, setConfirmedOrder] = useState(null);
   const [paymentError, setPaymentError] = useState(null);
 
+  // userData extendido: shipping_address + (opcional) billing_address
   const [userData, setUserData] = useState({
     email: '',
     first_name: '',
@@ -76,6 +77,10 @@ export default function PaymentFlowUnified({
     acceptsAlcoholTerms: false,
     acceptsShippingFee: false,
     identification: { type: 'DNI', number: '' },
+    shipping_address: { street_name: '', street_number: '', zip_code: '', city: '', state: '', country: '' },
+    billing_same_as_shipping: true,
+    billing_address: { street_name: '', street_number: '', zip_code: '', city: '', state: '', country: '' },
+    // Mantener address legacy para compatibilidad (se sincroniza antes de enviar)
     address: { street_name: '', street_number: '', zip_code: '', city: '', state: '', country: '' },
   });
 
@@ -144,20 +149,38 @@ export default function PaymentFlowUnified({
   const handleContinueToOrderConfirmation = () => {
     const processedUserData = { ...userData };
 
+    // Validación shipping obligatoria
+    const ship = processedUserData.shipping_address;
     if (
       !processedUserData.first_name ||
       !processedUserData.last_name ||
       !processedUserData.email ||
       !processedUserData.phone ||
-      !processedUserData.address?.street_name ||
-      !processedUserData.address?.street_number ||
-      !processedUserData.address?.zip_code ||
-      !processedUserData.address?.city ||
-      !processedUserData.address?.state ||
-      !processedUserData.address?.country
+      !ship?.street_name ||
+      !ship?.street_number ||
+      !ship?.zip_code ||
+      !ship?.city ||
+      !ship?.state ||
+      !ship?.country
     ) {
-      alert('Por favor completa todos los campos, necesitamos estos datos para enviar tu producto');
+      alert('Por favor completa todos los campos de la dirección de envío');
       return;
+    }
+
+    // Validación billing si distinta
+    if (!processedUserData.billing_same_as_shipping) {
+      const bill = processedUserData.billing_address;
+      if (
+        !bill?.street_name ||
+        !bill?.street_number ||
+        !bill?.zip_code ||
+        !bill?.city ||
+        !bill?.state ||
+        !bill?.country
+      ) {
+        alert('Completa todos los campos de la dirección de facturación');
+        return;
+      }
     }
 
     if (!processedUserData.birth_date) {
@@ -180,6 +203,11 @@ export default function PaymentFlowUnified({
     if (processedUserData.phone)
       processedUserData.phone = String(processedUserData.phone).replace(/[^\d+]/g, '');
 
+    // Sincronizar campo legacy address para compatibilidad (usa shipping)
+    processedUserData.address = { ...(processedUserData.shipping_address || {}) };
+    if (processedUserData.billing_same_as_shipping) {
+      processedUserData.billing_address = { ...(processedUserData.shipping_address || {}) };
+    }
     setUserData(processedUserData);
     setCurrentStep(3);
   };
@@ -212,7 +240,7 @@ export default function PaymentFlowUnified({
       return;
     }
 
-    logInfo('====== ORDEN CONFIRMADA (Unificado) ======');
+  logInfo('====== ORDEN CONFIRMADA (Unificado) ======');
     logInfo(
       'Productos seleccionados:',
       items.map((item) => ({
@@ -222,6 +250,8 @@ export default function PaymentFlowUnified({
         total: item.price * item.quantity,
       }))
     );
+  logInfo('Dirección envío:', userData.shipping_address);
+  logInfo('Dirección facturación:', userData.billing_same_as_shipping ? '(misma que envío)' : userData.billing_address);
     logInfo('SUBTOTAL: $' + formatPrice(calculateSubtotal()));
     logInfo('FEE DE ENVÍO: $' + formatPrice(SHIPPING_FEE));
     logInfo('TOTAL A PAGAR: $' + formatPrice(calculateTotalPrice()));
@@ -237,7 +267,7 @@ export default function PaymentFlowUnified({
           price: item.price,
           total: item.price * item.quantity,
         })),
-        userData,
+  userData, // contiene shipping_address y billing_address
         orderId: `ORDER_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         paymentStatus: 'pending',
       };
@@ -254,7 +284,7 @@ export default function PaymentFlowUnified({
         quantity: item.quantity,
       })),
       totalPrice: calculateTotalPrice(),
-      userData,
+  userData,
     });
     setCurrentStep(4);
   };
@@ -686,7 +716,7 @@ export default function PaymentFlowUnified({
           </div>
 
           <div className={styles['mp-form-section']}>
-            <h3 className={styles['mp-form-section-title']}>Dirección</h3>
+            <h3 className={styles['mp-form-section-title']}>Dirección de Envío</h3>
             <p className={styles['mp-form-section-subtitle']}>
               Todos los campos son obligatorios para envío del producto
             </p>
@@ -698,8 +728,8 @@ export default function PaymentFlowUnified({
               <input
                 id="mp-street"
                 type="text"
-                value={userData.address?.street_name || ''}
-                onChange={(e) => handleSecureInputChange('address.street_name', e.target.value, 'address', 200)}
+                value={userData.shipping_address?.street_name || ''}
+                onChange={(e) => handleSecureInputChange('shipping_address.street_name', e.target.value, 'address', 200)}
                 className={styles['mp-text-input']}
               />
             </div>
@@ -712,13 +742,11 @@ export default function PaymentFlowUnified({
                 <input
                   id="mp-street-number"
                   type="text"
-                  value={userData.address?.street_number || ''}
-                  onChange={(e) =>
-                    setUserData({
-                      ...userData,
-                      address: { ...(userData.address || {}), street_number: e.target.value },
-                    })
-                  }
+                  value={userData.shipping_address?.street_number || ''}
+                  onChange={(e) => setUserData({
+                    ...userData,
+                    shipping_address: { ...(userData.shipping_address || {}), street_number: e.target.value },
+                  })}
                   className={styles['mp-text-input']}
                 />
               </div>
@@ -729,13 +757,11 @@ export default function PaymentFlowUnified({
                 <input
                   id="mp-zip"
                   type="text"
-                  value={userData.address?.zip_code || ''}
-                  onChange={(e) =>
-                    setUserData({
-                      ...userData,
-                      address: { ...(userData.address || {}), zip_code: e.target.value },
-                    })
-                  }
+                  value={userData.shipping_address?.zip_code || ''}
+                  onChange={(e) => setUserData({
+                    ...userData,
+                    shipping_address: { ...(userData.shipping_address || {}), zip_code: e.target.value },
+                  })}
                   className={styles['mp-text-input']}
                 />
               </div>
@@ -748,8 +774,8 @@ export default function PaymentFlowUnified({
               <input
                 id="mp-city"
                 type="text"
-                value={userData.address?.city || ''}
-                onChange={(e) => handleSecureInputChange('address.city', e.target.value, 'address', 100)}
+                value={userData.shipping_address?.city || ''}
+                onChange={(e) => handleSecureInputChange('shipping_address.city', e.target.value, 'address', 100)}
                 className={styles['mp-text-input']}
               />
             </div>
@@ -761,8 +787,8 @@ export default function PaymentFlowUnified({
               <input
                 id="mp-state"
                 type="text"
-                value={userData.address?.state || ''}
-                onChange={(e) => handleSecureInputChange('address.state', e.target.value, 'address', 100)}
+                value={userData.shipping_address?.state || ''}
+                onChange={(e) => handleSecureInputChange('shipping_address.state', e.target.value, 'address', 100)}
                 className={styles['mp-text-input']}
               />
             </div>
@@ -773,16 +799,16 @@ export default function PaymentFlowUnified({
               </label>
               <select
                 id="mp-country"
-                value={userData.address?.country || ''}
+                value={userData.shipping_address?.country || ''}
                 onChange={(e) => {
                   const countryValue = e.target.value;
                   setUserData({
                     ...userData,
-                    address: {
-                      ...(userData.address || {}),
+                    shipping_address: {
+                      ...(userData.shipping_address || {}),
                       country: countryValue,
-                      customCountry: countryValue === 'Otro' ? '' : userData.address?.customCountry,
-                    },
+                      customCountry: countryValue === 'Otro' ? '' : userData.shipping_address?.customCountry,
+                    }
                   });
                 }}
                 className={styles['mp-select-input']}
@@ -800,7 +826,7 @@ export default function PaymentFlowUnified({
               </select>
             </div>
 
-            {userData.address?.country === 'Otro' && (
+            {userData.shipping_address?.country === 'Otro' && (
               <div className={styles['mp-form-group']}>
                 <label htmlFor="mp-custom-country">
                   ESPECIFIQUE PAÍS: <span className={styles['required']}>*</span>
@@ -808,11 +834,113 @@ export default function PaymentFlowUnified({
                 <input
                   id="mp-custom-country"
                   type="text"
-                  value={userData.address?.customCountry || ''}
-                  onChange={(e) => handleSecureInputChange('address.customCountry', e.target.value, 'address', 100)}
+                  value={userData.shipping_address?.customCountry || ''}
+                  onChange={(e) => handleSecureInputChange('shipping_address.customCountry', e.target.value, 'address', 100)}
                   className={styles['mp-text-input']}
                   placeholder="Escriba el nombre del país"
                 />
+              </div>
+            )}
+          </div>
+
+          {/* Checkbox: usar misma dirección para facturación */}
+          <div className={styles['mp-form-section']} style={{marginTop: 24}}>
+            <h3 className={styles['mp-form-section-title']}>Dirección de Facturación</h3>
+            <Check
+              label={<><strong>Usar la misma dirección que envío</strong></>}
+              checked={userData.billing_same_as_shipping}
+              onChange={(v) => setUserData({ ...userData, billing_same_as_shipping: v })}
+            />
+
+            {!userData.billing_same_as_shipping && (
+              <div className={styles['mp-nested-box']} style={{border:'1px solid #eee', padding:12, borderRadius:8, marginTop:8}}>
+                <div className={styles['mp-form-group']}>
+                  <label>CALLE (Facturación): <span className={styles['required']}>*</span></label>
+                  <input
+                    type="text"
+                    value={userData.billing_address?.street_name || ''}
+                    onChange={(e)=>handleSecureInputChange('billing_address.street_name', e.target.value, 'address', 200)}
+                    className={styles['mp-text-input']}
+                  />
+                </div>
+                <div className={styles['mp-form-row']}>
+                  <div className={styles['mp-form-group']}>
+                    <label>NÚMERO: <span className={styles['required']}>*</span></label>
+                    <input
+                      type="text"
+                      value={userData.billing_address?.street_number || ''}
+                      onChange={(e)=> setUserData({...userData, billing_address:{...(userData.billing_address||{}), street_number:e.target.value}})}
+                      className={styles['mp-text-input']}
+                    />
+                  </div>
+                  <div className={styles['mp-form-group']}>
+                    <label>CÓDIGO POSTAL: <span className={styles['required']}>*</span></label>
+                    <input
+                      type="text"
+                      value={userData.billing_address?.zip_code || ''}
+                      onChange={(e)=> setUserData({...userData, billing_address:{...(userData.billing_address||{}), zip_code:e.target.value}})}
+                      className={styles['mp-text-input']}
+                    />
+                  </div>
+                </div>
+                <div className={styles['mp-form-group']}>
+                  <label>CIUDAD: <span className={styles['required']}>*</span></label>
+                  <input
+                    type="text"
+                    value={userData.billing_address?.city || ''}
+                    onChange={(e)=>handleSecureInputChange('billing_address.city', e.target.value, 'address', 100)}
+                    className={styles['mp-text-input']}
+                  />
+                </div>
+                <div className={styles['mp-form-group']}>
+                  <label>ESTADO/PROVINCIA: <span className={styles['required']}>*</span></label>
+                  <input
+                    type="text"
+                    value={userData.billing_address?.state || ''}
+                    onChange={(e)=>handleSecureInputChange('billing_address.state', e.target.value, 'address', 100)}
+                    className={styles['mp-text-input']}
+                  />
+                </div>
+                <div className={styles['mp-form-group']}>
+                  <label>PAÍS: <span className={styles['required']}>*</span></label>
+                  <select
+                    value={userData.billing_address?.country || ''}
+                    onChange={(e)=>{
+                      const countryValue = e.target.value;
+                      setUserData({
+                        ...userData,
+                        billing_address: {
+                          ...(userData.billing_address||{}),
+                          country: countryValue,
+                          customCountry: countryValue === 'Otro' ? '' : userData.billing_address?.customCountry
+                        }
+                      })
+                    }}
+                    className={styles['mp-select-input']}
+                    required
+                  >
+                    <option value="">Seleccione un país</option>
+                    <option value="Mexico">México</option>
+                    <option value="Estados Unidos">Estados Unidos</option>
+                    <option value="Canada">Canadá</option>
+                    <option value="Colombia">Colombia</option>
+                    <option value="Argentina">Argentina</option>
+                    <option value="Peru">Perú</option>
+                    <option value="Chile">Chile</option>
+                    <option value="Otro">Otro</option>
+                  </select>
+                </div>
+                {userData.billing_address?.country === 'Otro' && (
+                  <div className={styles['mp-form-group']}>
+                    <label>ESPECIFIQUE PAÍS: <span className={styles['required']}>*</span></label>
+                    <input
+                      type="text"
+                      value={userData.billing_address?.customCountry || ''}
+                      onChange={(e)=>handleSecureInputChange('billing_address.customCountry', e.target.value, 'address', 100)}
+                      className={styles['mp-text-input']}
+                    />
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -905,13 +1033,12 @@ export default function PaymentFlowUnified({
               <Row label="Email" value={userData.email} />
               <Row label="Teléfono" value={userData.phone} />
               {userData.birth_date && <Row label="Fecha de nacimiento" value={userData.birth_date} />}
-              {userData.address && (
+              {userData.shipping_address && (
                 <>
-                  <Row label="Dirección" value={`${userData.address.street_name} ${userData.address.street_number}`} />
-                  <Row label="Ciudad" value={userData.address.city} />
-                  <Row label="Estado" value={userData.address.state} />
-                  <Row label="Código Postal" value={userData.address.zip_code} />
-                  <Row label="País" value={userData.address.country} />
+                  <Row label="Envío" value={`${userData.shipping_address.street_name} ${userData.shipping_address.street_number}, ${userData.shipping_address.city}, ${userData.shipping_address.state}, ${userData.shipping_address.zip_code}, ${userData.shipping_address.country}`} />
+                  {!userData.billing_same_as_shipping && (
+                    <Row label="Facturación" value={`${userData.billing_address.street_name} ${userData.billing_address.street_number}, ${userData.billing_address.city}, ${userData.billing_address.state}, ${userData.billing_address.zip_code}, ${userData.billing_address.country}`} />
+                  )}
                 </>
               )}
             </div>

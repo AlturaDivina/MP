@@ -76,6 +76,18 @@ export async function generateReceiptPDF({
     page.drawText(`Email: ${customerData.email || 'No proporcionado'}`, { x: 50, y: yPosition, size: 10, font });
     yPosition -= 15;
     page.drawText(`Teléfono: ${customerData.phone || 'No proporcionado'}`, { x: 50, y: yPosition, size: 10, font });
+    // Direcciones (nueva sección)
+    const ship = customerData.shipping_address || customerData.address || {};
+    const billing = customerData.billing_address || {};
+    const billingSame = customerData.billing_same_as_shipping !== false && Object.keys(billing).length === 0 ? true : JSON.stringify(ship) === JSON.stringify(billing);
+    yPosition -= 25;
+    page.drawText('DIRECCIONES:', { x: 50, y: yPosition, size: 12, font: boldFont });
+    yPosition -= 18;
+    page.drawText(`Envío: ${(ship.street_name||'')} ${(ship.street_number||'')}, ${(ship.city||'')}, ${(ship.state||'')} ${(ship.zip_code||'')} ${(ship.country||'')}`, { x:50, y: yPosition, size: 9, font });
+    if (!billingSame) {
+      yPosition -= 14;
+      page.drawText(`Facturación: ${(billing.street_name||'')} ${(billing.street_number||'')}, ${(billing.city||'')}, ${(billing.state||'')} ${(billing.zip_code||'')} ${(billing.country||'')}`, { x:50, y: yPosition, size: 9, font });
+    }
     
     // Items
     yPosition -= 40;
@@ -136,7 +148,7 @@ export async function generateReceiptPDF({
       font: boldFont 
     });
     
-    // NUEVO: Agregar nota de verificación de edad con fecha
+  // NUEVO: Agregar nota de verificación de edad con fecha
     yPosition -= 40;
     page.drawText('VERIFICACIÓN DE EDAD:', { 
       x: 50, 

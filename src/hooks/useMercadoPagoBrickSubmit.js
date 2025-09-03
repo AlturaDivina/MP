@@ -94,6 +94,18 @@ export function useMercadoPagoBrickSubmit({
         raw.paymentType ||
         "credit_card";
 
+      const legacySyncedUserData = (() => {
+        if (!userData) return userData;
+        const shipping = userData.shipping_address || userData.address;
+        const billing = userData.billing_same_as_shipping ? (shipping) : (userData.billing_address || {});
+        return {
+          ...userData,
+            address: shipping, // compat
+            shipping_address: shipping,
+            billing_address: billing,
+        };
+      })();
+
       const backendPayload = {
         paymentType,
         formData: flatFormData, // send normalized version
@@ -102,7 +114,7 @@ export function useMercadoPagoBrickSubmit({
         productId: !orderSummary ? productId : null,
         quantity: !orderSummary ? quantity : null,
         totalAmount: totalWithShipping,
-        userData,
+        userData: legacySyncedUserData,
         sessionToken: await getUserSessionToken(),
         idempotencyKey: uuidv4(),
         displayMode,

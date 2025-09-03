@@ -337,7 +337,9 @@ function getCustomerEmailTemplate({ orderId, isApproved, customerName, orderData
 // Template mejorado para el email de logística
 function getLogisticsEmailTemplate({ orderId, isApproved, orderData }) {
   const customer = orderData.userData || {};
-  const address = customer.address || {};
+  const shipping = customer.shipping_address || customer.address || {};
+  const billingSame = customer.billing_same_as_shipping !== false && !customer.billing_address ? true : customer.billing_same_as_shipping !== false && JSON.stringify(customer.billing_address||{}) === JSON.stringify(shipping||{});
+  const billing = billingSame ? shipping : (customer.billing_address || {});
   const items = orderData.items || [];
   const totalAmount = orderData.total_amount || 0;
   const mode = orderData?.displayMode || orderData?.metadata?.displayMode || 'full';
@@ -399,14 +401,24 @@ function getLogisticsEmailTemplate({ orderId, isApproved, orderData }) {
           </div>
           <div>
             <p style="margin: 0 0 5px; font-weight: 600; color: #34495e;">Dirección de Envío:</p>
-            <div style="background-color: #f8f9fa; padding: 10px; border-radius: 4px;">
+            <div style="background-color: #f8f9fa; padding: 10px; border-radius: 4px; margin-bottom:8px;">
               <p style="margin: 0; line-height: 1.4;">
-                ${address.street_name || ''} ${address.street_number || ''}<br>
-                ${address.zip_code ? `C.P. ${address.zip_code}<br>` : ''}
-                ${address.city || ''}, ${address.state || ''}<br>
-                <strong>${address.country || 'México'}</strong>
+                ${shipping.street_name || ''} ${shipping.street_number || ''}<br>
+                ${shipping.zip_code ? `C.P. ${shipping.zip_code}<br>` : ''}
+                ${shipping.city || ''}, ${shipping.state || ''}<br>
+                <strong>${shipping.country || 'México'}</strong>
               </p>
             </div>
+            ${billingSame ? '' : `
+            <p style="margin: 10px 0 5px; font-weight:600; color:#34495e;">Dirección de Facturación:</p>
+            <div style="background:#f8f9fa; padding:10px; border-radius:4px;">
+              <p style="margin:0; line-height:1.4;">
+                ${billing.street_name || ''} ${billing.street_number || ''}<br>
+                ${billing.zip_code ? `C.P. ${billing.zip_code}<br>` : ''}
+                ${billing.city || ''}, ${billing.state || ''}<br>
+                <strong>${billing.country || 'México'}</strong>
+              </p>
+            </div>`}
           </div>
         </div>
       </div>
@@ -770,7 +782,7 @@ function buildFullCustomerBlock(customer) {
   const last = customer?.last_name || customer?.lastName || '';
   const email = customer?.email || '';
   const phone = customer?.phone || '';
-  const addr = customer?.address || {};
+  const addr = customer?.shipping_address || customer?.address || {};
   return `
     <h3>Datos del cliente</h3>
     <p><strong>Nombre:</strong> ${first} ${last}</p>
