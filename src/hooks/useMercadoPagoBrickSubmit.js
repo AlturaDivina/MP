@@ -84,7 +84,7 @@ export function useMercadoPagoBrickSubmit({
           ? orderSummary.reduce((total, item) => total + (item.price * item.quantity), 0)
           : 0);
 
-  const SHIPPING_FEE = 0; // Envío temporalmente en 0
+      const SHIPPING_FEE = (displayMode === 'family') ? 0 : 200;
       const totalWithShipping = finalAmount + SHIPPING_FEE;
 
       // Prefer robust payment type mapping

@@ -25,7 +25,7 @@ import {
 import { normalizeDisplayMode, validateCustomerByMode } from '../lib/validation'
 
 // NUEVO: Constante para el fee de envío
-const SHIPPING_FEE = 0; // Envío temporalmente en 0
+const SHIPPING_FEE = 200;
 
 const formatPrice = (price) => {
   return Number(price).toLocaleString('es-MX', {

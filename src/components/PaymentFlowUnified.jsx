@@ -19,7 +19,7 @@ import { sanitizeName, sanitizeAddress, sanitizePhone, sanitizeEmail, sanitizeIn
  * - Paso 1: carrito arriba con pill de cantidad; productos abajo como 3 filas full-width
  */
 
-const SHIPPING_FEE = 0; // Envío temporalmente en 0
+const SHIPPING_FEE = 200;
 const formatPrice = (price) =>
   Number(price).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
