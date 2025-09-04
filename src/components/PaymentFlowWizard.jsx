@@ -109,10 +109,10 @@ export default function PaymentFlowWizard({
     acceptsAlcoholTerms: false,
     acceptsShippingFee: false,
     identification: { type: 'INE', number: '' },
-    shipping_address: { street_name: '', street_number: '', zip_code: '', city: '', state: '', country: '' },
+  shipping_address: { street_name: '', street_number: '', zip_code: '', city: '', state: '', country: '', customCountry: '' },
     billing_same_as_shipping: false,
-    billing_address: { street_name: '', street_number: '', zip_code: '', city: '', state: '', country: '' },
-    address: { street_name: '', street_number: '', zip_code: '', city: '', state: '', country: '' },
+  billing_address: { street_name: '', street_number: '', zip_code: '', city: '', state: '', country: '', customCountry: '' },
+  address: { street_name: '', street_number: '', zip_code: '', city: '', state: '', country: '', customCountry: '' },
   });
 
   const [stepIndex, setStepIndex] = useState(0);
@@ -188,6 +188,7 @@ export default function PaymentFlowWizard({
     if (!obj.city) e[`${prefix}.city`] = 'Ciudad requerida';
     if (!obj.state) e[`${prefix}.state`] = 'Estado requerido';
     if (!obj.country) e[`${prefix}.country`] = 'País requerido';
+    if (obj.country === 'Otro' && !obj.customCountry) e[`${prefix}.customCountry`] = 'Especifique el país';
     return e;
   }
 
@@ -440,8 +441,37 @@ function StepAddress({ title, prefix, data, setField, errors }) {
         <input value={data.state} onChange={e=>setField(`${prefix}_address.state`, e.target.value,'address',100)} />
       </Field>
       <Field label="País" error={errors[`${prefix}.country`]} required>
-        <input value={data.country} onChange={e=>setField(`${prefix}_address.country`, e.target.value,'address',100)} />
+        <select
+          value={data.country}
+          onChange={e=> {
+            const val = e.target.value;
+            setField(`${prefix}_address.country`, val, 'text', 100);
+            if (val !== 'Otro') {
+              // limpiar customCountry si cambia a uno estándar
+              setField(`${prefix}_address.customCountry`, '', 'address', 100);
+            }
+          }}
+        >
+          <option value="">Seleccione un país</option>
+          <option value="Mexico">México</option>
+          <option value="Estados Unidos">Estados Unidos</option>
+          <option value="Canada">Canadá</option>
+          <option value="Colombia">Colombia</option>
+          <option value="Argentina">Argentina</option>
+          <option value="Peru">Perú</option>
+          <option value="Chile">Chile</option>
+          <option value="Otro">Otro</option>
+        </select>
       </Field>
+      {data.country === 'Otro' && (
+        <Field label="Especifique País" error={errors[`${prefix}.customCountry`]} required>
+          <input
+            value={data.customCountry}
+            onChange={e=>setField(`${prefix}_address.customCountry`, e.target.value,'address',100)}
+            placeholder="Nombre del país"
+          />
+        </Field>
+      )}
     </div>
   );
 }
