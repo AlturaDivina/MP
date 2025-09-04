@@ -119,6 +119,39 @@ export default function PaymentFlowWizard({
   const [errors, setErrors] = useState({});
   const [confirmed, setConfirmed] = useState(false); // indica que ya se generó resumen antes de pago
 
+  // --- Auto-resize para iframe (Framer) ---
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (window.parent === window) return; // sólo cuando estamos embebidos
+    const frameId = (typeof window !== 'undefined' && window.name) || `mp_frame_${Math.random().toString(36).slice(2)}`;
+    const post = (reason='resize') => {
+      try {
+        const h = document.documentElement.scrollHeight;
+        window.parent.postMessage({ type:'MP_IFRAME_HEIGHT', height:h, step:stepIndex, reason, frameId }, '*');
+      } catch(_) {}
+    };
+    post('mount');
+    let ro;
+    if ('ResizeObserver' in window) {
+      ro = new ResizeObserver(() => post('ro'));
+      ro.observe(document.documentElement);
+      ro.observe(document.body);
+    } else {
+      const int = setInterval(()=>post('interval'), 900);
+      window.addEventListener('beforeunload', ()=> clearInterval(int));
+    }
+    const evt = () => post('event');
+    window.addEventListener('orientationchange', evt);
+    window.addEventListener('keydown', evt);
+    window.addEventListener('load', evt);
+    return () => {
+      window.removeEventListener('orientationchange', evt);
+      window.removeEventListener('keydown', evt);
+      window.removeEventListener('load', evt);
+      if (ro) ro.disconnect();
+    };
+  }, [stepIndex]);
+
   // --- Derived totals ---
   const subtotal = totalAmount;
   const total = subtotal + SHIPPING_FEE;
