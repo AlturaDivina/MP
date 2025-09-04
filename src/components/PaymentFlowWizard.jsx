@@ -184,7 +184,7 @@ export default function PaymentFlowWizard({
     const e = {};
     if (!obj.street_name) e[`${prefix}.street_name`] = 'Calle requerida';
     if (!obj.street_number) e[`${prefix}.street_number`] = 'Número requerido';
-    if (!obj.zip_code) e[`${prefix}.zip_code`] = 'C.P. requerido';
+  if (!obj.zip_code) e[`${prefix}.zip_code`] = 'Código postal requerido';
     if (!obj.city) e[`${prefix}.city`] = 'Ciudad requerida';
     if (!obj.state) e[`${prefix}.state`] = 'Estado requerido';
     if (!obj.country) e[`${prefix}.country`] = 'País requerido';
@@ -299,60 +299,50 @@ export default function PaymentFlowWizard({
 function StepCart({ items, products, loading, error, addItem, setQty, subtotal, total, clearCart }) {
   return (
     <div className={styles.stepContainer}>
-      <h3 className={styles.blockTitle}>Carrito</h3>
-      {items.length === 0 && !loading && !error && <p>No has agregado productos todavía.</p>}
-      {items.map(it => (
-        <div key={it.productId} className={styles.cartRow}>
-          <div className={styles.cartInfo}>
-            <strong>{it.name}</strong>
-            <span>${formatPrice(it.price * it.quantity)}</span>
-          </div>
-          <div className={styles.qtyPill}>
-            <button onClick={() => setQty(it.productId, it.quantity - 1)} aria-label="disminuir">−</button>
-            <input type="number" value={it.quantity} min={0} onChange={e => setQty(it.productId, e.target.value)} />
-            <button onClick={() => setQty(it.productId, it.quantity + 1)} aria-label="incrementar">＋</button>
-          </div>
-        </div>
-      ))}
-
-      <div className={styles.summaryBox}>
-        <div className={styles.line}><span>Subtotal:</span><span>${formatPrice(subtotal)}</span></div>
-        <div className={styles.line}><span>Envío:</span><span>$200.00</span></div>
-        <div className={`${styles.line} ${styles.totalLine}`}><span>Total:</span><span>${formatPrice(total)}</span></div>
-      </div>
-
-      <h3 className={styles.blockTitle} style={{marginTop:8}}>Productos</h3>
+      <h3 className={styles.blockTitle}>Productos</h3>
       {loading && <p>Cargando productos...</p>}
       {error && <p style={{color:'#dc2626'}}>Error: {error}</p>}
       {!loading && !error && (
-        <ul style={{listStyle:'none', padding:0, margin:0, display:'grid', gap:8}}>
-          {products.map(p => {
-            const cartItem = items.find(i => i.productId === p.id);
-            return (
-              <li key={p.id} style={{border:'1px solid #e5e7eb', borderRadius:12, padding:12, display:'flex', justifyContent:'space-between', alignItems:'center'}}>
-                <div style={{display:'grid', gap:2, maxWidth:'65%'}}>
-                  <strong style={{fontSize:14}}>{p.name}</strong>
-                  {p.description && <span style={{fontSize:12, color:'#6b7280'}}>{p.description}</span>}
-                  <span style={{fontSize:13, fontWeight:600}}>${formatPrice(p.price)}</span>
-                </div>
-                <div>
-                  {cartItem ? (
-                    <div className={styles.qtyPill}>
-                      <button onClick={() => setQty(cartItem.productId, cartItem.quantity - 1)}>−</button>
-                      <input type="number" value={cartItem.quantity} min={0} onChange={e => setQty(cartItem.productId, e.target.value)} />
-                      <button onClick={() => setQty(cartItem.productId, cartItem.quantity + 1)}>＋</button>
-                    </div>
-                  ) : (
-                    <button style={{border:'1px solid #ec6a2b', background:'#fff', color:'#ec6a2b', padding:'6px 10px', borderRadius:999, fontSize:12, fontWeight:600}} onClick={() => addItem(p,1)}>Agregar</button>
-                  )}
-                </div>
-              </li>
-            );
-          })}
-        </ul>
-      )}
-      {items.length > 0 && (
-        <button onClick={clearCart} style={{marginTop:8, background:'#f3f4f6', border:'1px solid #e5e7eb', borderRadius:8, padding:'6px 10px', fontSize:12}}>Vaciar carrito</button>
+        <>
+          <ul style={{listStyle:'none', padding:0, margin:0, display:'grid', gap:8}}>
+            {products.map(p => {
+              const cartItem = items.find(i => i.productId === p.id);
+              return (
+                <li key={p.id} style={{border:'1px solid #e5e7eb', borderRadius:12, padding:12, display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+                  <div style={{display:'grid', gap:2, maxWidth:'65%'}}>
+                    <strong style={{fontSize:14}}>{p.name}</strong>
+                    {p.description && <span style={{fontSize:12, color:'#6b7280'}}>{p.description}</span>}
+                    <span style={{fontSize:13, fontWeight:600}}>${formatPrice(p.price)}</span>
+                  </div>
+                  <div>
+                    {cartItem ? (
+                      <div className={styles.qtyPill}>
+                        <button onClick={() => setQty(cartItem.productId, cartItem.quantity - 1)} aria-label={`Reducir cantidad de ${p.name}`}>−</button>
+                        <input type="number" value={cartItem.quantity} min={0} onChange={e => setQty(cartItem.productId, e.target.value)} />
+                        <button onClick={() => setQty(cartItem.productId, cartItem.quantity + 1)} aria-label={`Incrementar cantidad de ${p.name}`}>＋</button>
+                      </div>
+                    ) : (
+                      <button className={styles.addBtn} onClick={() => addItem(p,1)} aria-label={`Agregar ${p.name} al carrito`}>＋ Agregar</button>
+                    )}
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+          {items.length === 0 && <p style={{marginTop:8}}>No has agregado productos todavía.</p>}
+          {items.length > 0 && (
+            <div className={styles.summaryBox} style={{marginTop:12}}>
+              <div className={styles.line}><span>Subtotal:</span><span>${formatPrice(subtotal)}</span></div>
+              <div className={styles.line}><span>Envío:</span><span>$200.00</span></div>
+              <div className={`${styles.line} ${styles.totalLine}`}><span>Total:</span><span>${formatPrice(total)}</span></div>
+            </div>
+          )}
+          {items.length > 0 && (
+            <button onClick={clearCart} className={styles.clearCartBtn} aria-label="Vaciar carrito (eliminar todos los productos)" style={{marginTop:10}}>
+              <span><span className={styles.clearCartIcon} aria-hidden="true" /> Vaciar carrito</span>
+            </button>
+          )}
+        </>
       )}
     </div>
   );
@@ -430,7 +420,7 @@ function StepAddress({ title, prefix, data, setField, errors }) {
         <Field label="Número" error={errors[`${prefix}.street_number`]} required>
           <input value={data.street_number} onChange={e=>setField(`${prefix}_address.street_number`, e.target.value)} />
         </Field>
-        <Field label="C.P." error={errors[`${prefix}.zip_code`]} required>
+  <Field label="Código Postal" error={errors[`${prefix}.zip_code`]} required>
           <input value={data.zip_code} onChange={e=>setField(`${prefix}_address.zip_code`, e.target.value)} />
         </Field>
       </div>

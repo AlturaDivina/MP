@@ -46,4 +46,20 @@
 .paymentSummary { display:grid; gap:4px; margin-bottom:10px; font-size:13px; }
 .paymentNotice { background:#fff7ed; border:1px solid #fed7aa; color:#9a3412; font-size:12px; padding:10px 12px; border-radius:10px; line-height:1.3; }
 .phoneInput { width:100%!important; }
+/* Botón Vaciar Carrito */
+.clearCartBtn { margin-top:8px; background:#f3f4f6; border:1px solid #e5e7eb; border-radius:10px; padding:8px 14px; font-size:12px; font-weight:600; letter-spacing:.3px; cursor:pointer; color:#374151; position:relative; overflow:hidden; transition:color .25s, border-color .25s, background .25s; }
+.clearCartBtn:before { content:""; position:absolute; inset:0; background:linear-gradient(135deg, rgba(236,106,43,0.12), rgba(236,106,43,0.05)); opacity:0; transition:opacity .3s; }
+.clearCartBtn:hover:before { opacity:1; }
+.clearCartBtn:hover { background:#fff; border-color:#ec6a2b; color:#ec6a2b; }
+.clearCartBtn:active { transform:translateY(1px); }
+.clearCartBtn:focus-visible { outline:2px solid #ec6a2b; outline-offset:2px; }
+.clearCartBtn span { display:inline-flex; align-items:center; gap:6px; }
+.clearCartIcon { width:14px; height:14px; display:inline-block; border:2px solid currentColor; border-radius:4px; position:relative; }
+.clearCartIcon:after, .clearCartIcon:before { content:""; position:absolute; top:50%; left:50%; width:8px; height:2px; background:currentColor; transform:translate(-50%,-50%) rotate(45deg); border-radius:1px; }
+.clearCartIcon:before { transform:translate(-50%,-50%) rotate(-45deg); }
+/* Botón Agregar producto */
+.addBtn { border:1px solid #ec6a2b; background:#fff; color:#ec6a2b; padding:8px 12px; border-radius:999px; cursor:pointer; font-weight:700; font-size:12px; line-height:1; display:inline-flex; align-items:center; gap:4px; transition:background .25s, color .25s, box-shadow .25s; }
+.addBtn:hover { background:#ec6a2b; color:#fff; box-shadow:0 3px 8px -2px rgba(236,106,43,.45); }
+.addBtn:active { transform:translateY(1px); }
+.addBtn:focus-visible { outline:2px solid #ec6a2b; outline-offset:2px; }
 @media (max-width:520px){ .twoCols { grid-template-columns:1fr; } .wrapper { border-radius:12px; } }
