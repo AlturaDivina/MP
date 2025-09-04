@@ -1,4 +1,4 @@
-.wrapper { display:flex; flex-direction:column; width:100%; max-width:520px; margin:0 auto; border:1px solid #e5e7eb; border-radius:16px; background:#fff; box-shadow:0 4px 12px rgba(0,0,0,0.06); font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif; }
+.wrapper { display:flex; flex-direction:column; width:100%; max-width:520px; margin:0 auto; border:none; border-radius:0; background:transparent; box-shadow:none; font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif; }
 .header { padding:14px 20px; border-bottom:1px solid #f1f5f9; background:#fafafa; display:flex; justify-content:center; }
 .title { margin:0; font-size:19px; font-weight:700; letter-spacing:.5px; display:flex; align-items:center; justify-content:center; flex-wrap:wrap; }
 .brand { color:#ec6a2b; font-weight:800; }
