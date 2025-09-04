@@ -78,7 +78,8 @@ export default function PaymentFlowUnified({
     acceptsShippingFee: false,
     identification: { type: 'DNI', number: '' },
     shipping_address: { street_name: '', street_number: '', zip_code: '', city: '', state: '', country: '' },
-    billing_same_as_shipping: true,
+  // Por requerimiento: el checkbox de "usar misma dirección" debe iniciar deseleccionado
+  billing_same_as_shipping: false,
     billing_address: { street_name: '', street_number: '', zip_code: '', city: '', state: '', country: '' },
     // Mantener address legacy para compatibilidad (se sincroniza antes de enviar)
     address: { street_name: '', street_number: '', zip_code: '', city: '', state: '', country: '' },
@@ -1036,9 +1037,11 @@ export default function PaymentFlowUnified({
               {userData.shipping_address && (
                 <>
                   <Row label="Envío" value={`${userData.shipping_address.street_name} ${userData.shipping_address.street_number}, ${userData.shipping_address.city}, ${userData.shipping_address.state}, ${userData.shipping_address.zip_code}, ${userData.shipping_address.country}`} />
-                  {!userData.billing_same_as_shipping && (
-                    <Row label="Facturación" value={`${userData.billing_address.street_name} ${userData.billing_address.street_number}, ${userData.billing_address.city}, ${userData.billing_address.state}, ${userData.billing_address.zip_code}, ${userData.billing_address.country}`} />
-                  )}
+                  {/* Mostrar siempre la dirección de facturación, aunque sea la misma */}
+                  <Row
+                    label="Facturación"
+                    value={`${(userData.billing_address?.street_name || userData.shipping_address.street_name) || ''} ${(userData.billing_address?.street_number || userData.shipping_address.street_number) || ''}, ${(userData.billing_address?.city || userData.shipping_address.city) || ''}, ${(userData.billing_address?.state || userData.shipping_address.state) || ''}, ${(userData.billing_address?.zip_code || userData.shipping_address.zip_code) || ''}, ${(userData.billing_address?.country || userData.shipping_address.country) || ''}`}
+                  />
                 </>
               )}
             </div>
@@ -1099,6 +1102,17 @@ export default function PaymentFlowUnified({
             </div>
           </div>
           <div className={styles['mp-payment-wrapper']}>
+            {/* Disclaimer requerido: alta visibilidad antes del Brick */}
+            <div className={styles['mp-payment-disclaimer']} role="note" aria-live="polite">
+              <strong style={{display:'block', fontWeight:700, marginBottom:4}}>IMPORTANTE</strong>
+              <span>
+                Asegúrate de que la información de facturación (billing info) coincida exactamente con la información de tu tarjeta (card info).
+              </span>
+              <br />
+              <span>
+                En caso de que tu tarjeta sea americana, puede que solo funcione si la registras como crédito, incluso si es de débito.
+              </span>
+            </div>
             {renderPaymentProvider()}
           </div>
           <div className={styles['mp-payment-actions']}>
