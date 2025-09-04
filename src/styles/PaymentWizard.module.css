@@ -1,0 +1,49 @@
+.wrapper { display:flex; flex-direction:column; width:100%; max-width:520px; margin:0 auto; border:1px solid #e5e7eb; border-radius:16px; background:#fff; box-shadow:0 4px 12px rgba(0,0,0,0.06); font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif; }
+.header { padding:14px 20px; border-bottom:1px solid #f1f5f9; background:#fafafa; display:flex; justify-content:center; }
+.title { margin:0; font-size:19px; font-weight:700; letter-spacing:.5px; display:flex; align-items:center; justify-content:center; flex-wrap:wrap; }
+.brand { color:#ec6a2b; font-weight:800; }
+.dot { opacity:.55; padding:0 4px; }
+.stepper { display:flex; overflow-x:auto; gap:4px; padding:8px 12px; background:#fff; scrollbar-width:none; }
+.stepper::-webkit-scrollbar { display:none; }
+.stepItem { flex:1 0 auto; display:flex; align-items:center; gap:6px; padding:6px 10px; border-radius:12px; cursor:pointer; background:#f3f4f6; font-size:12px; font-weight:500; transition:all .25s; user-select:none; }
+.stepItem:hover { background:#e5e7eb; }
+.stepItem.active { background:#ec6a2b; color:#fff; }
+.stepItem.done { background:#d1fae5; color:#065f46; }
+.stepIndex { width:20px; height:20px; border-radius:50%; background:rgba(0,0,0,0.08); display:flex; align-items:center; justify-content:center; font-weight:600; font-size:11px; }
+.stepItem.active .stepIndex { background:rgba(255,255,255,0.25); }
+.stepItem.done .stepIndex { background:#10b981; color:#fff; }
+.stepText { white-space:nowrap; }
+.progressBar { height:4px; background:#f1f5f9; margin:0 16px; border-radius:2px; position:relative; overflow:hidden; }
+.progressFill { position:absolute; top:0; left:0; bottom:0; background:#ec6a2b; transition:width .35s; }
+.stepLabel { text-align:center; font-size:13px; font-weight:600; color:#374151; padding:4px 0 2px; }
+.contentArea { flex:1; padding:16px 18px 16px; display:flex; flex-direction:column; gap:14px; }
+/* Footer ahora fluye al final. Se hace sticky solo si hay suficiente altura de viewport */
+.footerActions { margin-top:8px; display:flex; justify-content:space-between; gap:8px; padding:12px 16px; background:#fff; border-top:1px solid #f1f5f9; position:relative; }
+@media (min-height:740px){
+	.footerActions { position:sticky; bottom:0; background:linear-gradient(to top,#fff 65%,rgba(255,255,255,0.85)); }
+}
+.footerActions button { flex:1; }
+.stepContainer { display:flex; flex-direction:column; gap:14px; }
+.field { display:flex; flex-direction:column; gap:4px; font-size:13px; }
+.fieldLabel { font-weight:600; font-size:12px; letter-spacing:.4px; color:#374151; text-transform:uppercase; }
+.field input, .field select { border:1px solid #d1d5db; border-radius:10px; padding:10px 12px; font-size:14px; outline:none; background:#fff; transition:border-color .2s, box-shadow .2s; }
+.field input:focus, .field select:focus { border-color:#ec6a2b; box-shadow:0 0 0 3px rgba(236,106,43,.25); }
+.errorMsg { color:#dc2626; font-size:11px; font-weight:600; }
+.twoCols { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+.checkboxRow { display:flex; align-items:flex-start; gap:8px; font-size:13px; line-height:1.3; }
+.checkboxRow input { margin-top:2px; }
+.cartRow { display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid #f1f5f9; }
+.cartInfo { display:flex; flex-direction:column; gap:2px; font-size:13px; }
+.qtyPill { display:flex; align-items:center; gap:6px; background:#ec6a2b; padding:4px 10px; border-radius:999px; }
+.qtyPill button { background:transparent; border:none; color:#fff; font-size:16px; font-weight:700; cursor:pointer; width:24px; height:24px; display:flex; align-items:center; justify-content:center; }
+.qtyPill input { width:42px; background:transparent; border:none; text-align:center; color:#fff; font-weight:600; font-size:14px; }
+.summaryBox { display:grid; gap:6px; font-size:13px; margin-top:4px; }
+.line { display:flex; justify-content:space-between; gap:12px; }
+.totalLine { font-weight:700; font-size:14px; }
+.blockTitle { margin:0; font-size:15px; font-weight:700; color:#111827; }
+.reviewRow { display:flex; justify-content:space-between; font-size:13px; padding:4px 0; }
+.dataList { list-style:none; padding:0; margin:0; display:grid; gap:4px; font-size:13px; }
+.paymentSummary { display:grid; gap:4px; margin-bottom:10px; font-size:13px; }
+.paymentNotice { background:#fff7ed; border:1px solid #fed7aa; color:#9a3412; font-size:12px; padding:10px 12px; border-radius:10px; line-height:1.3; }
+.phoneInput { width:100%!important; }
+@media (max-width:520px){ .twoCols { grid-template-columns:1fr; } .wrapper { border-radius:12px; } }

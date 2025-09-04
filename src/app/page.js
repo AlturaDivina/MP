@@ -3,6 +3,7 @@
 import { Suspense, useState, useEffect } from 'react'
 import PaymentFlow from '../components/PaymentFlow'
 import PaymentFlowUnified from '../components/PaymentFlowUnified'
+import PaymentFlowWizard from '../components/PaymentFlowWizard'
 import MercadoPagoProvider from '../components/MercadoPagoProvider'
 import CartIcon from '../components/CartIcon'; // Added
 import CartSidebar from '../components/CartSidebar'; // Added
@@ -14,7 +15,8 @@ export default function Home({ searchParams }) {
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
 
-    const hideTitle = urlParams.get('hideTitle') === 'true';
+  const hideTitle = urlParams.get('hideTitle') === 'true';
+  const layoutMode = urlParams.get('layout') || 'wizard'; // 'wizard' | 'unified'
     // Normalize: accept initialProductId or productId, ignore empty string
     const initialProductIdRaw =
       urlParams.get('initialProductId') ?? urlParams.get('productId') ?? null;
@@ -38,6 +40,7 @@ export default function Home({ searchParams }) {
 
     setParams({
       hideTitle,
+      layoutMode,
       initialProductId,
       publicKey,
       successUrl: finalSuccessUrl,
@@ -107,24 +110,27 @@ export default function Home({ searchParams }) {
     ...(params.initialStep !== undefined && { initialStep: params.initialStep }),
   };
 
+  const useWizard = params.layoutMode === 'wizard';
+
   if (params.displayMode === 'paymentFlowOnly') {
     return (
       <div style={{ padding: '20px' }}>
-        {/* <PaymentFlow
-          {...paymentFlowProps}
-          initialProductId={params.initialProductId}
-          initialStep={params.initialStep}
-          displayMode="paymentFlowOnly"
-          cartIconColor={params.cartIconColor}
-        /> */}
-
-         <PaymentFlowUnified
-          {...paymentFlowProps}
-          initialProductId={params.initialProductId}
-          initialStep={params.initialStep}
-          displayMode="paymentFlowOnly"
-          cartIconColor={params.cartIconColor}
-        />
+        {useWizard ? (
+          <PaymentFlowWizard
+            {...paymentFlowProps}
+            initialProductId={params.initialProductId}
+            initialStep={params.initialStep}
+            hideTitle={params.hideTitle}
+          />
+        ) : (
+          <PaymentFlowUnified
+            {...paymentFlowProps}
+            initialProductId={params.initialProductId}
+            initialStep={params.initialStep}
+            displayMode="paymentFlowOnly"
+            cartIconColor={params.cartIconColor}
+          />
+        )}
       </div>
     );
   }
@@ -132,21 +138,22 @@ export default function Home({ searchParams }) {
   return (
     <div>
       <Suspense fallback={<div style={{ textAlign: 'center', padding: '20px' }}>Cargando componente de pago...</div>}>
-        {/* <PaymentFlow
-          {...paymentFlowProps}
-          initialProductId={params.initialProductId}
-          initialStep={params.initialStep}
-          displayMode={params.displayMode}
-          cartIconColor={params.cartIconColor} // Añadir esto
-        /> */}
-
-         <PaymentFlowUnified
-          {...paymentFlowProps}
-          initialProductId={params.initialProductId}
-          initialStep={params.initialStep}
-          displayMode={params.displayMode}
-          cartIconColor={params.cartIconColor} // Añadir esto
-        />
+        {useWizard ? (
+          <PaymentFlowWizard
+            {...paymentFlowProps}
+            initialProductId={params.initialProductId}
+            initialStep={params.initialStep}
+            hideTitle={params.hideTitle}
+          />
+        ) : (
+          <PaymentFlowUnified
+            {...paymentFlowProps}
+            initialProductId={params.initialProductId}
+            initialStep={params.initialStep}
+            displayMode={params.displayMode}
+            cartIconColor={params.cartIconColor}
+          />
+        )}
       </Suspense>
     </div>
   );
