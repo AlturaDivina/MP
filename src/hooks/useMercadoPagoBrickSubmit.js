@@ -206,6 +206,10 @@ export function useMercadoPagoBrickSubmit({
         setProcessingError(null);
         setStatusMsg(`¡Pago procesado correctamente! ID: ${data.id}`);
         if (onSuccess) onSuccess(data);
+        // Emitir evento para que el Provider muestre fallback correct link
+        try {
+          window.dispatchEvent(new CustomEvent('MP_REDIRECT_DECIDED', { detail: { status: 'approved', redirectUrl: successUrl } }));
+        } catch (e) { /* noop */ }
         
         // Notifica al contenedor del iframe antes de redirigir
         try {
@@ -233,6 +237,9 @@ export function useMercadoPagoBrickSubmit({
       else if (data.status === 'in_process' || data.status === 'pending') {
         setStatusMsg(`Pago en proceso. ID: ${data.id}`);
         if (onSuccess) onSuccess(data);
+        try {
+          window.dispatchEvent(new CustomEvent('MP_REDIRECT_DECIDED', { detail: { status: data.status, redirectUrl: pendingUrl } }));
+        } catch (e) { /* noop */ }
         
         try {
           if (window.parent !== window) {
@@ -258,6 +265,9 @@ export function useMercadoPagoBrickSubmit({
         // Rejected case - payment was rejected
         setProcessingError(data.message || 'El pago fue rechazado');
         if (onError) onError(new Error(data.message || 'El pago fue rechazado'));
+        try {
+          window.dispatchEvent(new CustomEvent('MP_REDIRECT_DECIDED', { detail: { status: 'rejected', redirectUrl: failureUrl } }));
+        } catch (e) { /* noop */ }
         if (failureUrl) window.location.href = failureUrl;
       } 
       else if (data.error) {

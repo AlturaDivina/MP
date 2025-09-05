@@ -1,4 +1,4 @@
-// src/components/MercadoPagoEmbed.tsx
+// src/components/MercadoPagoEmbed.tsx (actualizado con auto-resize y mejoras)
 import * as React from "react"
 import { addPropertyControls, ControlType } from "framer"
 
@@ -13,20 +13,22 @@ interface MercadoPagoEmbedProps {
     height: number | string
     onRedirect?: (event: any) => void
     sessionIdOverride?: string
-    displayMode?:
-        | "full"
-        | "cartIconOnly"
-        | "paymentFlowOnly"
-        | "sidebarOnly"
-        | "family"
+    displayMode?: "full" | "cartIconOnly" | "paymentFlowOnly" | "sidebarOnly"
     initialStep?: number
     cartIconColor?: string
-    usePageDefault?: boolean // nuevo
+    autoResize?: boolean
+    maxAutoHeight?: number
+    minAutoHeight?: number
+    /**
+     * Controla cómo se maneja la altura:
+     * - "auto": el iframe cambia su altura al contenido (postMessage MP_IFRAME_HEIGHT)
+     * - "fixed": usa height (prop) o 100dvh y hace scroll interno
+     * - "parent": se ajusta al alto del contenedor padre y mantiene scroll interno si overflow
+     */
+    scrollMode?: "auto" | "fixed" | "parent" | "viewportFit"
 }
 
-export function MercadoPagoEmbed(
-    props: MercadoPagoEmbedProps
-): React.ReactElement {
+export function MercadoPagoEmbed(props: MercadoPagoEmbedProps): React.ReactElement {
     const {
         productId,
         publicKey,
@@ -38,123 +40,128 @@ export function MercadoPagoEmbed(
         height,
         onRedirect,
         sessionIdOverride,
-        displayMode,
+        displayMode = "full",
         initialStep,
         cartIconColor,
-        usePageDefault = true, // nuevo: por defecto deja que page.js decida
+    autoResize = true,
+    maxAutoHeight = 3200,
+    minAutoHeight = 400,
+    scrollMode = "auto",
     } = props
 
-    // CAMBIO CLAVE: Usar un sessionId global para toda la página
+    const iframeRef = React.useRef<HTMLIFrameElement>(null)
+    const [dynamicHeight, setDynamicHeight] = React.useState<number>(typeof height === "number" ? height : 800)
+    const [parentHeight, setParentHeight] = React.useState<number | null>(null)
+    const enableResize = autoResize && scrollMode === "auto"
+    const viewportFitRef = React.useRef<() => void>(()=>{})
+
+    // Observa el tamaño del contenedor padre cuando scrollMode = 'parent'
+    React.useLayoutEffect(() => {
+        if (scrollMode !== "parent") return
+        const node = iframeRef.current?.parentElement
+        if (!node) return
+        const measure = () => {
+            const h = node.clientHeight
+            if (h && h > 0) setParentHeight(h)
+        }
+        measure()
+        const ro = new ResizeObserver(measure)
+        ro.observe(node)
+        return () => ro.disconnect()
+    }, [scrollMode])
+
+    // Modo viewportFit: calculamos el espacio visible restante en viewport
+    React.useLayoutEffect(() => {
+        if (scrollMode !== 'viewportFit') return
+        const calc = () => {
+            if (!iframeRef.current) return
+            const rect = iframeRef.current.getBoundingClientRect()
+            const avail = window.innerHeight - rect.top - 4 // margen mínimo
+            if (avail > 120) {
+                iframeRef.current.style.height = avail + 'px'
+            }
+        }
+        viewportFitRef.current = calc
+        calc()
+        window.addEventListener('resize', calc)
+        window.addEventListener('orientationchange', calc)
+        window.addEventListener('scroll', calc, true)
+        return () => {
+            window.removeEventListener('resize', calc)
+            window.removeEventListener('orientationchange', calc)
+            window.removeEventListener('scroll', calc, true)
+        }
+    }, [scrollMode])
+
+    // Session global consistente
     const getOrCreateGlobalSessionId = React.useCallback(() => {
-        // 1. Intentar obtener de la URL
         if (typeof window !== "undefined") {
             const urlParams = new URLSearchParams(window.location.search)
             const sessionFromUrl = urlParams.get("sessionId")
             if (sessionFromUrl) return sessionFromUrl
         }
-
-        // 2. Intentar obtener del sessionStorage (persistente en la sesión)
         if (typeof window !== "undefined" && window.sessionStorage) {
             const storedId = sessionStorage.getItem("mp_global_session_id")
             if (storedId) return storedId
         }
-
-        // 3. Crear uno nuevo y guardarlo para que sea consistente
-        const newSessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+        const newSessionId = `session_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`
         if (typeof window !== "undefined" && window.sessionStorage) {
             sessionStorage.setItem("mp_global_session_id", newSessionId)
         }
         return newSessionId
     }, [])
 
-    // Usar el sessionId global o el override proporcionado explícitamente
     const sessionId = React.useMemo(
         () => sessionIdOverride || getOrCreateGlobalSessionId(),
         [getOrCreateGlobalSessionId, sessionIdOverride]
     )
 
-    // El resto de tu código de MercadoPagoEmbed...
     React.useEffect(() => {
-        // Escuchar mensajes del iframe
         const handleMessage = (event: MessageEvent) => {
-            // Verificar origen para seguridad
-            if (!event.origin.includes("mercadopagoiframe.vercel.app")) {
-                return
-            }
-
-            if (event.data.type === "MP_PAYMENT_SUCCESS") {
-                console.log(
-                    "Pago exitoso, redirigiendo a:",
-                    event.data.redirectUrl
-                )
-                // Llamar al callback de redirección si existe
+            if (!event.origin.includes("mercadopagoiframe.vercel.app")) return
+            const { type } = event.data || {}
+            if (type === "MP_PAYMENT_SUCCESS" || type === "MP_PAYMENT_PENDING" || type === "MP_PAYMENT_FAILED") {
+                const statusMap: Record<string, string> = {
+                    MP_PAYMENT_SUCCESS: "success",
+                    MP_PAYMENT_PENDING: "pending",
+                    MP_PAYMENT_FAILED: "failed",
+                }
+                const redirectUrl = event.data.redirectUrl
                 if (onRedirect) {
                     onRedirect({
-                        status: "success",
-                        redirectUrl: event.data.redirectUrl,
+                        status: statusMap[type],
+                        redirectUrl,
                         data: event.data.paymentData,
                     })
                 }
-
-                // Redireccionar la página completa
-                if (event.data.redirectUrl) {
-                    window.top.location.href = event.data.redirectUrl
+                if (redirectUrl) {
+                    window.top.location.href = redirectUrl
                 }
-            } else if (event.data.type === "MP_PAYMENT_PENDING") {
-                console.log(
-                    "Pago pendiente, redirigiendo a:",
-                    event.data.redirectUrl
-                )
-                if (onRedirect) {
-                    onRedirect({
-                        status: "pending",
-                        redirectUrl: event.data.redirectUrl,
-                        data: event.data.paymentData,
-                    })
-                }
-
-                if (event.data.redirectUrl) {
-                    window.top.location.href = event.data.redirectUrl
-                }
-            } else if (event.data.type === "MP_PAYMENT_FAILED") {
-                console.log(
-                    "Pago fallido, redirigiendo a:",
-                    event.data.redirectUrl
-                )
-                if (onRedirect) {
-                    onRedirect({
-                        status: "failed",
-                        redirectUrl: event.data.redirectUrl,
-                        data: event.data.paymentData,
-                    })
-                }
-
-                if (event.data.redirectUrl) {
-                    window.top.location.href = event.data.redirectUrl
-                }
-            } else if (event.data.type === "CART_UPDATE") {
-                // NUEVO: Cuando el iframe actualiza el carrito, notificar a otros componentes
+            } else if (type === "CART_UPDATE") {
                 if (typeof window !== "undefined") {
-                    const updateEvent = new CustomEvent(
-                        "ALTURA_DIVINA_CART_UPDATE",
-                        {
-                            detail: { source: "mercadopago_iframe", sessionId },
-                        }
-                    )
+                    const updateEvent = new CustomEvent("ALTURA_DIVINA_CART_UPDATE", {
+                        detail: { source: "mercadopago_iframe", sessionId },
+                    })
                     window.dispatchEvent(updateEvent)
                 }
+            } else if (type === "MP_IFRAME_HEIGHT" && enableResize) {
+                const raw = Number(event.data.height)
+                if (!isNaN(raw) && raw > 0) {
+                    const clamped = Math.min(Math.max(raw, minAutoHeight), maxAutoHeight)
+                    setDynamicHeight(clamped)
+                    if (iframeRef.current) {
+                        iframeRef.current.style.height = `${clamped}px`
+                    }
+                }
             }
         }
-
         window.addEventListener("message", handleMessage)
+        return () => window.removeEventListener("message", handleMessage)
+    }, [onRedirect, sessionId, enableResize, maxAutoHeight, minAutoHeight])
 
-        return () => {
-            window.removeEventListener("message", handleMessage)
-        }
-    }, [onRedirect, successUrl, pendingUrl, failureUrl, sessionId])
-
+    // Construir src del iframe
     const baseUrl = "https://mercadopagoiframe.vercel.app/"
-    const params = {
+    const params: Record<string, string> = {
         initialProductId: productId || "",
         publicKey: publicKey || "",
         successUrl: successUrl || "",
@@ -164,162 +171,76 @@ export function MercadoPagoEmbed(
         isInIframe: "true",
         sessionId: sessionId,
     }
+    if (displayMode) params.displayMode = displayMode
+    if (initialStep != null) params.initialStep = String(initialStep)
+    if (cartIconColor && displayMode === "cartIconOnly") params.cartIconColor = cartIconColor
 
-    // Normalizar y validar displayMode (sin fallback aquí)
-    const allowedDisplayModes = new Set([
-        "full",
-        "family",
-        "cartIconOnly",
-        "paymentFlowOnly",
-        "sidebarOnly",
-    ])
-    const normalizedDisplayMode = React.useMemo(() => {
-        const raw = (displayMode ?? "").toString().trim()
-        return allowedDisplayModes.has(raw) ? raw : undefined
-    }, [displayMode])
+    const iframeSrc = `${baseUrl}?${new URLSearchParams(params).toString()}`
 
-    if (!usePageDefault && normalizedDisplayMode) {
-        params["displayMode"] = normalizedDisplayMode
+    const resolvedWidth = typeof width === "number" ? `${width}px` : width || "100%"
+    let resolvedHeight: string
+    if (scrollMode === "viewportFit") {
+        // Altura se setea dinámicamente via efecto; usar fallback inicial
+        if (typeof height === 'number') resolvedHeight = `${height}px`
+        else if (typeof height === 'string' && height.trim() !== '') resolvedHeight = height
+        else resolvedHeight = '100dvh'
+    } else if (scrollMode === "parent") {
+        if (parentHeight) resolvedHeight = `${parentHeight}px`
+        else if (typeof height === "number") resolvedHeight = `${height}px`
+        else if (typeof height === "string" && height.trim() !== "") resolvedHeight = height
+        else resolvedHeight = "100%"
+    } else if (scrollMode === "fixed") {
+        if (typeof height === "number") resolvedHeight = `${height}px`
+        else if (typeof height === "string" && height.trim() !== "") resolvedHeight = height
+        else resolvedHeight = "100dvh"
+    } else { // auto
+        resolvedHeight = enableResize ? `${dynamicHeight}px` : (typeof height === "number" ? `${height}px` : height || `${dynamicHeight}px`)
     }
-    // Solo enviar initialStep para paymentFlowOnly cuando se fuerza el modo
-    if (!usePageDefault && normalizedDisplayMode === "paymentFlowOnly" && initialStep != null) {
-        params["initialStep"] = String(initialStep)
-    }
-    if (!usePageDefault && cartIconColor && normalizedDisplayMode === "cartIconOnly") {
-        params["cartIconColor"] = cartIconColor
-    } else {
-    }
-
-    const queryParams = new URLSearchParams(params).toString()
-    const iframeSrc = `${baseUrl}?${queryParams}`
-
-    console.log(
-        "[MP Embed] displayMode prop:",
-        displayMode,
-        "usePageDefault:",
-        usePageDefault,
-        "→ normalized:",
-        normalizedDisplayMode,
-        "→ iframeSrc:",
-        iframeSrc
-    )
 
     return (
         <iframe
+            ref={iframeRef}
             src={iframeSrc}
-            width={width}
-            height={height}
+            width={resolvedWidth}
+            height={resolvedHeight}
             style={{
                 border: "none",
                 borderRadius: "8px",
-                overflow: "hidden",
+                overflow: (scrollMode === "fixed" || scrollMode === "parent" || scrollMode === 'viewportFit') ? "auto" : "hidden",
+                width: "100%",
+                transition: enableResize ? "height 180ms ease" : undefined,
+                minHeight: enableResize ? `${minAutoHeight}px` : undefined,
+                maxHeight: scrollMode === "parent" && parentHeight ? `${parentHeight}px` : undefined,
             }}
-            allow="payment; allow-top-navigation-by-user-activation" // <-- Cambia aquí
+            allow="payment; allow-top-navigation-by-user-activation"
         />
     )
 }
 
 // Controles en el panel de Framer
 addPropertyControls(MercadoPagoEmbed, {
-    productId: {
-        title: "Product ID",
-        type: ControlType.String,
-        defaultValue: "2",
-    },
-    publicKey: {
-        title: "MP Public Key",
-        type: ControlType.String,
-        defaultValue: "",
-    },
-    successUrl: {
-        title: "Success URL",
-        type: ControlType.String,
-        defaultValue: "https://alturadivina.com/confirmacion-de-compra",
-    },
-    pendingUrl: {
-        title: "Pending URL",
-        type: ControlType.String,
-        defaultValue: "https://alturadivina.com/proceso-de-compra",
-    },
-    failureUrl: {
-        title: "Failure URL",
-        type: ControlType.String,
-        defaultValue: "https://alturadivina.com/error-de-compra",
-    },
-    hideTitle: {
-        title: "Hide Title",
-        type: ControlType.Boolean,
-        defaultValue: false,
-    },
-    width: {
-        title: "Width",
-        type: ControlType.Number,
-        defaultValue: 400,
-        min: 100,
-        max: 2000,
-        step: 10,
-    },
-    height: {
-        title: "Height",
-        type: ControlType.Number,
-        defaultValue: 600,
-        min: 100,
-        max: 3000,
-        step: 10,
-    },
-    onRedirect: {
-        title: "On Redirect",
-        type: ControlType.EventHandler,
-    },
-    // Nuevo control para sessionId (opcional)
-    sessionIdOverride: {
-        title: "Session ID (opcional)",
-        type: ControlType.String,
-        defaultValue: "",
-    },
-    usePageDefault: {
-        title: "Use Page Default",
-        type: ControlType.Boolean,
-        defaultValue: true,
-    },
-    displayMode: {
-        title: "Display Mode",
-        type: ControlType.Enum,
-        options: [
-            "full",
-            "cartIconOnly",
-            "paymentFlowOnly",
-            "sidebarOnly",
-            "family",
-        ],
-        defaultValue: "family",
-        hidden(props) {
-            return props.usePageDefault === true
-        },
-    },
-    cartIconColor: {
-        title: "Cart Icon Color",
-        type: ControlType.Color,
-        defaultValue: "#333333",
-        hidden(props) {
-            return props.usePageDefault === true || props.displayMode !== "cartIconOnly"
-        },
-    },
-    initialStep: {
-        title: "Initial Step (PaymentFlow)",
-        type: ControlType.Number,
-        defaultValue: 1,
-        min: 1,
-        step: 1,
-        hidden(props) {
-            return props.usePageDefault === true || props.displayMode !== "paymentFlowOnly"
-        },
-    },
+    productId: { title: "Product ID", type: ControlType.String, defaultValue: "2" },
+    publicKey: { title: "MP Public Key", type: ControlType.String, defaultValue: "" },
+    successUrl: { title: "Success URL", type: ControlType.String, defaultValue: "https://alturadivina.com/confirmacion-de-compra" },
+    pendingUrl: { title: "Pending URL", type: ControlType.String, defaultValue: "https://alturadivina.com/proceso-de-compra" },
+    failureUrl: { title: "Failure URL", type: ControlType.String, defaultValue: "https://alturadivina.com/error-de-compra" },
+    hideTitle: { title: "Hide Title", type: ControlType.Boolean, defaultValue: false },
+    scrollMode: { title: "Scroll Mode", type: ControlType.Enum, options: ["auto", "fixed", "parent", "viewportFit"], optionTitles: ["Auto Resize", "Fixed (inner)", "Lock Parent", "Viewport Fit"], defaultValue: "auto" },
+    autoResize: { title: "Auto Resize", type: ControlType.Boolean, defaultValue: true, hidden: (p: any) => p.scrollMode !== 'auto' },
+    width: { title: "Width (fallback)", type: ControlType.Number, defaultValue: 400, min: 100, max: 2000, step: 10, hidden: (p: any) => (p.scrollMode === 'auto' && p.autoResize) || p.scrollMode === 'parent' },
+    height: { title: "Height (fallback)", type: ControlType.Number, defaultValue: 600, min: 100, max: 3000, step: 10, hidden: (p: any) => (p.scrollMode === 'auto' && p.autoResize) || p.scrollMode === 'parent' },
+    minAutoHeight: { title: "Min Auto H", type: ControlType.Number, defaultValue: 400, min: 200, max: 2000, step: 20, hidden: (p: any) => !(p.scrollMode === 'auto' && p.autoResize) },
+    maxAutoHeight: { title: "Max Auto H", type: ControlType.Number, defaultValue: 3200, min: 800, max: 6000, step: 50, hidden: (p: any) => !(p.scrollMode === 'auto' && p.autoResize) },
+    onRedirect: { title: "On Redirect", type: ControlType.EventHandler },
+    sessionIdOverride: { title: "Session ID (opcional)", type: ControlType.String, defaultValue: "" },
+    displayMode: { title: "Display Mode", type: ControlType.Enum, options: ["full", "cartIconOnly", "paymentFlowOnly", "sidebarOnly"], defaultValue: "full" },
+    cartIconColor: { title: "Cart Icon Color", type: ControlType.Color, defaultValue: "#333333", hidden(props) { return props.displayMode !== "cartIconOnly" } },
+    initialStep: { title: "Initial Step (PaymentFlow)", type: ControlType.Number, defaultValue: 1, min: 1, step: 1, hidden(props) { return props.displayMode === "cartIconOnly" } },
 })
 
-// Props por defecto en canvas
+// Props por defecto en canvas (válidos)
 MercadoPagoEmbed.defaultProps = {
-    productId: "2",
+    productId: "1",
     publicKey: "",
     successUrl: "https://alturadivina.com/confirmacion-de-compra",
     pendingUrl: "https://alturadivina.com/proceso-de-compra",
@@ -327,6 +248,10 @@ MercadoPagoEmbed.defaultProps = {
     hideTitle: false,
     width: 300,
     height: 500,
-    usePageDefault: true,
-    // Nota: mantener displayMode: "family" no afecta, porque si usePageDefault es true no se envía.
+    displayMode: "full",
+    initialStep: 1,
+    cartIconColor: "#333333",
+    autoResize: true,
+    minAutoHeight: 400,
+    maxAutoHeight: 3200,
 }

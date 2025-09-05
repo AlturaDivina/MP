@@ -123,6 +123,8 @@ export default function MercadoPagoProvider(props) {
 
   const [displayError, setDisplayError] = useState(null);
   const [statusMsg, setStatusMsg] = useState('');
+  // Nueva info de redirección (solo se llena cuando YA se conoce el status definitivo o intermedio)
+  const [redirectInfo, setRedirectInfo] = useState({ status: null, url: null });
 
   useEffect(() => {
     if (sdkError) setDisplayError(sdkError);
@@ -184,6 +186,19 @@ export default function MercadoPagoProvider(props) {
     
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
+  }, []);
+
+  // Escucha eventos internos de decisión de redirección (emitidos por el hook o por handleSuccess)
+  useEffect(() => {
+    const localListener = (e) => {
+      if (!e || !e.detail) return;
+      const { status, redirectUrl } = e.detail;
+      if (status && redirectUrl) {
+        setRedirectInfo({ status, url: redirectUrl });
+      }
+    };
+    window.addEventListener('MP_REDIRECT_DECIDED', localListener);
+    return () => window.removeEventListener('MP_REDIRECT_DECIDED', localListener);
   }, []);
 
   // Error handler for Payment component
@@ -306,6 +321,13 @@ export default function MercadoPagoProvider(props) {
     // Mostrar mensaje (puedes usar un toast, modal, etc)
     alert(userMessage);
 
+    // Guardar estado de redirección (para mostrar link sólo cuando se conoce el status)
+    try {
+      window.dispatchEvent(new CustomEvent('MP_REDIRECT_DECIDED', { detail: { status: status || 'unknown', redirectUrl } }));
+    } catch (e) {
+      logError('Error dispatching MP_REDIRECT_DECIDED event', e);
+    }
+
     // Redirigir
     if (typeof window !== 'undefined') {
       window.location.href = redirectUrl;
@@ -373,19 +395,18 @@ export default function MercadoPagoProvider(props) {
           )}
         </div>
       )}
-
-      {isProcessing && (
+      {/* Link de fallback SOLO aparece cuando ya conocemos el status y la URL correcta */}
+      {redirectInfo.status && redirectInfo.url && (
         <div className={styles.redirectMessage}>
           <p>
-            Si no eres redirigido automáticamente después del pago,{' '}
-            <a 
-              href={successUrl} 
-              target="_blank" 
+            Redirigiendo a la página de {redirectInfo.status === 'approved' ? 'éxito' : (redirectInfo.status === 'pending' || redirectInfo.status === 'in_process') ? 'estado pendiente' : (redirectInfo.status === 'rejected' ? 'pago rechazado' : 'resultado')}...{' '}
+            Si no eres redirigido automáticamente,{' '}
+            <a
+              href={redirectInfo.url}
+              target="_blank"
               rel="noopener noreferrer"
               className={styles.redirectLink}
-            >
-              haz clic aquí
-            </a>
+            >haz clic aquí</a>.
           </p>
         </div>
       )}
