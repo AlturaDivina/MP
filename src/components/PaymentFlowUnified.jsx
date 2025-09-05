@@ -19,7 +19,8 @@ import { sanitizeName, sanitizeAddress, sanitizePhone, sanitizeEmail, sanitizeIn
  * - Paso 1: carrito arriba con pill de cantidad; productos abajo como 3 filas full-width
  */
 
-const SHIPPING_FEE = 200;
+// Shipping fee ahora 0 (antes 200)
+const SHIPPING_FEE = 0;
 const formatPrice = (price) =>
   Number(price).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -977,8 +978,7 @@ export default function PaymentFlowUnified({
             <Check
               label={
                 <>
-                  Acepto el cargo fijo de envío de $200.00 MXN que se agregará a mi pedido. Este
-                  cargo cubre el manejo especial y entrega segura de productos regulados.
+                  Acepto el cargo fijo de envío de ${formatPrice(SHIPPING_FEE)} MXN que se agregará a mi pedido.
                 </>
               }
               checked={userData.acceptsShippingFee}
@@ -1055,7 +1055,7 @@ export default function PaymentFlowUnified({
             <Check label={<>Acepto los términos y condiciones para la compra de productos que pueden contener alcohol. <span className={styles['required']}>*</span></>}
                    checked={userData.acceptsAlcoholTerms}
                    onChange={(v) => setUserData({ ...userData, acceptsAlcoholTerms: v })} />
-            <Check label={<>Acepto el cargo fijo de envío de $200.00 MXN que se agregará a mi pedido. <span className={styles['required']}>*</span></>}
+            <Check label={<>Acepto el cargo fijo de envío de ${formatPrice(SHIPPING_FEE)} MXN que se agregará a mi pedido. <span className={styles['required']}>*</span></>}
                    checked={userData.acceptsShippingFee}
                    onChange={(v) => setUserData({ ...userData, acceptsShippingFee: v })} />
           </div>
@@ -1096,7 +1096,7 @@ export default function PaymentFlowUnified({
             <div className={styles['mp-grand-total']}>
               <div className={styles['mp-price-breakdown']}>
                 <div className={styles['mp-price-row']}><span>Subtotal productos:</span><span>${formatPrice(totalAmount)}</span></div>
-                <div className={styles['mp-price-row']}><span>Cargo de envío:</span><span>$200.00</span></div>
+                <div className={styles['mp-price-row']}><span>Cargo de envío:</span><span>${formatPrice(SHIPPING_FEE)}</span></div>
                 <div className={styles['mp-price-row']}><span><strong>Total a Pagar:</strong></span><span><strong>{totalFmt}</strong></span></div>
               </div>
             </div>

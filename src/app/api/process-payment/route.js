@@ -129,7 +129,7 @@ async function processMercadoPagoPayment({
   }
 
   // 2. SIEMPRE calcula el total en el backend
-  const SHIPPING_FEE = isFF ? 0 : 200; // En FF no se cobra envío
+  const SHIPPING_FEE = 0; // Envío ahora siempre 0
   const calculatedAmount = preferenceItems.reduce((total, item) => 
     total + (item.unit_price * item.quantity), 0);
 
@@ -425,7 +425,7 @@ export async function POST(req) {
       itemsForPayment = secureOrderItems;
 
     // ✅ CORRECCIÓN: Agregar el fee de envío al total calculado
-  const SHIPPING_FEE = displayMode === 'family' ? 0 : 200;
+  const SHIPPING_FEE = 0; // Envío ahora 0
       const totalWithShipping = secureTotal + SHIPPING_FEE;
 
       // ✅ Comparar con el total enviado para detectar manipulación
@@ -524,7 +524,7 @@ export async function POST(req) {
       logInfo(`🟢 [${idempotencyKey}] ENTRANDO al bloque principal de payment request`);
 
     // Preparar datos para registro en BD
-  const SHIPPING_FEE = displayMode === 'family' ? 0 : 200;
+  const SHIPPING_FEE = 0; // Envío ahora 0
       const subtotalProducts = itemsForPayment.reduce(
         (total, item) => total + parseFloat(item.price) * parseInt(item.quantity),
         0
@@ -663,7 +663,7 @@ export async function POST(req) {
           itemsForPayment: itemsForPayment?.length || 0
         });
 
-  const SHIPPING_FEE_EMAIL = displayMode === 'family' ? 0 : 200;
+  const SHIPPING_FEE_EMAIL = 0; // Envío ahora 0
         const subtotalProductsEmail = itemsForPayment.reduce(
           (total, item) => total + parseFloat(item.price) * parseInt(item.quantity),
           0

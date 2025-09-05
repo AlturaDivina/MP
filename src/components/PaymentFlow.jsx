@@ -25,7 +25,8 @@ import {
 import { normalizeDisplayMode, validateCustomerByMode } from '../lib/validation'
 
 // NUEVO: Constante para el fee de envío
-const SHIPPING_FEE = 200;
+// Shipping fee ahora 0 (antes 200)
+const SHIPPING_FEE = 0;
 
 const formatPrice = (price) => {
   return Number(price).toLocaleString('es-MX', {
@@ -818,7 +819,7 @@ export default function PaymentFlow(props) {
               {!isFamilyFriends && (
                 <div className={styles['mp-price-row']}>
                   <span>Cargo de envío:</span>
-                  <span>$200.00</span>
+                  <span>${formatPrice(SHIPPING_FEE)}</span>
                 </div>
               )}
               <div className={styles['mp-price-row', styles['mp-total-row']]}>
@@ -1231,8 +1232,7 @@ export default function PaymentFlow(props) {
                       required
                     />
                     <span className={styles['mp-checkbox-text']}>
-                      Acepto el cargo fijo de envío de $200.00 MXN que se agregará a mi pedido. 
-                      Este cargo cubre el manejo especial y entrega segura de productos regulados.
+                      Acepto el cargo fijo de envío de ${formatPrice(SHIPPING_FEE)} MXN que se agregará a mi pedido.
                     </span>
                   </label>
                 </div>
@@ -1407,8 +1407,7 @@ export default function PaymentFlow(props) {
                       required
                     />
                     <span className={styles['mp-checkbox-text']}>
-                      Acepto el cargo fijo de envío de $200.00 MXN que se agregará a mi pedido. 
-                      Este cargo cubre el manejo especial y entrega segura de productos regulados. <span className={styles['required']}>*</span>
+                      Acepto el cargo fijo de envío de ${formatPrice(SHIPPING_FEE)} MXN que se agregará a mi pedido. <span className={styles['required']}>*</span>
                     </span>
                   </label>
                 </div>
@@ -1568,7 +1567,7 @@ export default function PaymentFlow(props) {
                 {!isFamilyFriends && (
                   <div className={styles['mp-price-row']}>
                     <span>Cargo de envío:</span>
-                    <span>$200.00</span>
+                    <span>${formatPrice(SHIPPING_FEE)}</span>
                   </div>
                 )}
                 <div className={styles['mp-price-row', styles['mp-total-row']]}>

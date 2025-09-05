@@ -32,7 +32,8 @@ import { sanitizeName, sanitizeAddress, sanitizePhone, sanitizeEmail, sanitizeIn
 import PhoneInput from 'react-phone-input-2';
 import 'react-phone-input-2/lib/style.css';
 
-const SHIPPING_FEE = 200;
+// Shipping fee configurado a 0 (antes 200)
+const SHIPPING_FEE = 0;
 const formatPrice = (n) => Number(n).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 export default function PaymentFlowWizard({
@@ -366,7 +367,7 @@ function StepCart({ items, products, loading, error, addItem, setQty, subtotal, 
           {items.length > 0 && (
             <div className={styles.summaryBox} style={{marginTop:12}}>
               <div className={styles.line}><span>Subtotal:</span><span>${formatPrice(subtotal)}</span></div>
-              <div className={styles.line}><span>Envío:</span><span>$200.00</span></div>
+              <div className={styles.line}><span>Envío:</span><span>${formatPrice(SHIPPING_FEE)}</span></div>
               <div className={`${styles.line} ${styles.totalLine}`}><span>Total:</span><span>${formatPrice(total)}</span></div>
             </div>
           )}
@@ -531,7 +532,7 @@ function StepLegals({ userData, setUserData, errors }) {
     <div className={styles.stepContainer}>
       <Checkbox label="Confirmo que soy mayor de 18 años" checked={userData.isOver18} onChange={v=>setUserData({...userData,isOver18:v})} error={errors.isOver18} />
       <Checkbox label="Acepto los términos y condiciones (productos con alcohol)" checked={userData.acceptsAlcoholTerms} onChange={v=>setUserData({...userData,acceptsAlcoholTerms:v})} error={errors.acceptsAlcoholTerms} />
-      <Checkbox label="Acepto el cargo fijo de envío de $200 MXN" checked={userData.acceptsShippingFee} onChange={v=>setUserData({...userData,acceptsShippingFee:v})} error={errors.acceptsShippingFee} />
+  <Checkbox label={`Acepto el cargo fijo de envío de $${SHIPPING_FEE} MXN`} checked={userData.acceptsShippingFee} onChange={v=>setUserData({...userData,acceptsShippingFee:v})} error={errors.acceptsShippingFee} />
     </div>
   );
 }
@@ -548,7 +549,7 @@ function StepReview({ items, userData, subtotal, total }) {
       ))}
       <div className={styles.summaryBox}>
         <div className={styles.line}><span>Subtotal:</span><span>${formatPrice(subtotal)}</span></div>
-        <div className={styles.line}><span>Envío:</span><span>$200.00</span></div>
+  <div className={styles.line}><span>Envío:</span><span>${formatPrice(SHIPPING_FEE)}</span></div>
         <div className={`${styles.line} ${styles.totalLine}`}><span>Total:</span><span>${formatPrice(total)}</span></div>
       </div>
       <h3 className={styles.blockTitle}>Datos</h3>
@@ -570,7 +571,7 @@ function StepPayment({ items, total, subtotal, userData, publicKey, apiBaseUrl, 
     <div className={styles.stepContainer}>
       <div className={styles.paymentSummary}>
         <div className={styles.line}><span>Subtotal:</span><span>${formatPrice(subtotal)}</span></div>
-        <div className={styles.line}><span>Envío:</span><span>$200.00</span></div>
+  <div className={styles.line}><span>Envío:</span><span>${formatPrice(SHIPPING_FEE)}</span></div>
         <div className={`${styles.line} ${styles.totalLine}`}><span>Total:</span><span>${formatPrice(total)}</span></div>
       </div>
       <div className={formStyles['mp-payment-disclaimer']} role="note" aria-live="polite">

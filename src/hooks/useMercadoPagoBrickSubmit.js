@@ -84,7 +84,8 @@ export function useMercadoPagoBrickSubmit({
           ? orderSummary.reduce((total, item) => total + (item.price * item.quantity), 0)
           : 0);
 
-      const SHIPPING_FEE = (displayMode === 'family') ? 0 : 200;
+  // Shipping fee globalmente 0 (anteriormente 200 si no era 'family')
+  const SHIPPING_FEE = 0;
       const totalWithShipping = finalAmount + SHIPPING_FEE;
 
       // Prefer robust payment type mapping
