@@ -33,7 +33,7 @@ import PhoneInput from 'react-phone-input-2';
 import 'react-phone-input-2/lib/style.css';
 
 // Shipping fee configurado a 0 (antes 200)
-const SHIPPING_FEE = 0;
+const SHIPPING_FEE = 200;
 const formatPrice = (n) => Number(n).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 export default function PaymentFlowWizard({

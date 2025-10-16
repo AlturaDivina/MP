@@ -87,7 +87,7 @@ export function useMercadoPagoBrickSubmit({
           : 0);
 
   // Shipping fee globalmente 0 (anteriormente 200 si no era 'family')
-  const SHIPPING_FEE = 0;
+  const SHIPPING_FEE = 200;
     const discountAmt = Number(discountAmount || 0);
     const totalWithShipping = Math.max(0, finalAmount - discountAmt + SHIPPING_FEE);
 

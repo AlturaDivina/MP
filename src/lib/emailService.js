@@ -521,8 +521,8 @@ export async function sendPaymentApprovedEmail(paymentRequest, paymentInfo) {
       orderId: paymentRequest.id,
       customerData,
       items: orderItems,
-  subtotalAmount: (paymentRequest.total_amount ?? 0) - (paymentRequest.shipping_fee ?? 0),
-  shippingFee: paymentRequest.shipping_fee ?? 0,
+  subtotalAmount: (paymentRequest.total_amount ?? 0) - (paymentRequest.shipping_fee ?? 200),
+  shippingFee: paymentRequest.shipping_fee ?? 200,
       totalAmount: paymentRequest.total_amount,
       paymentStatus: 'approved',
       paymentId: paymentInfo.id,
@@ -566,7 +566,7 @@ export async function sendRefundEmail(paymentRequest, paymentInfo) {
     const totalRefundAmount = paymentRequest.total_amount;
     
     // ✅ NUEVO: Calcular subtotal y envío por separado
-  const SHIPPING_FEE = 0; // Actualizado: fee de envío ahora 0
+  const SHIPPING_FEE = 200; // Actualizado: fee de envío ahora 0
     const subtotalRefund = totalRefundAmount - SHIPPING_FEE;
 
     // ✅ USAR: transport.sendMail directamente en lugar de sendEmail
