@@ -291,6 +291,12 @@ function getCustomerEmailTemplate({ orderId, isApproved, customerName, orderData
               <td colspan="2" style="padding: 10px 8px; text-align: right; color: #2c3e50;">Subtotal:</td>
               <td style="padding: 10px 8px; text-align: right; color: #2c3e50;">$${orderData.subtotal_amount.toFixed(2)}</td>
             </tr>
+            ${Number(orderData.discount_amount||0) > 0 ? `
+            <tr style="background-color: #f8f9fa;">
+              <td colspan="2" style="padding: 10px 8px; text-align: right; color: #2c3e50;">Descuento${orderData.discount_code ? ` (${orderData.discount_code})` : ''}:</td>
+              <td style="padding: 10px 8px; text-align: right; color: #dc2626;">- $${Number(orderData.discount_amount).toFixed(2)}</td>
+            </tr>
+            ` : ''}
             <!-- ✅ NUEVO: Mostrar envío -->
             <tr style="background-color: #f8f9fa;">
               <td colspan="2" style="padding: 10px 8px; text-align: right; color: #2c3e50;">Envío:</td>

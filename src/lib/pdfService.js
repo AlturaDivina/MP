@@ -13,7 +13,9 @@ export async function generateReceiptPDF({
   totalAmount,
   paymentStatus,
   paymentId,
-  displayMode
+  displayMode,
+  discountAmount = 0,
+  discountCode = null
 }) {
   try {
     logInfo(`📄 [${orderId}] Iniciando generación de PDF con pdf-lib`);
@@ -128,9 +130,20 @@ export async function generateReceiptPDF({
       page.drawText(`$${fee.toFixed(2)}`, { x: 480, y: yPosition, size: 10, font });
       yPosition -= 20;
     }
+
+    // NUEVO: Línea de descuento si aplica
+    const disc = Number(discountAmount || 0);
+    if (disc > 0) {
+      const label = `Descuento${discountCode ? ` (${discountCode})` : ''}`;
+      page.drawText(label, { x: 50, y: yPosition, size: 10, font });
+      page.drawText('1', { x: 300, y: yPosition, size: 10, font });
+      page.drawText(`-$${disc.toFixed(2)}`, { x: 380, y: yPosition, size: 10, font });
+      page.drawText(`-$${disc.toFixed(2)}`, { x: 480, y: yPosition, size: 10, font });
+      yPosition -= 20;
+    }
     
     // Subtotal
-    const subtotal = subtotalAmount != null ? Number(subtotalAmount) : (Number(totalAmount) - fee);
+  const subtotal = subtotalAmount != null ? Number(subtotalAmount) : (Number(totalAmount) - fee + disc);
     yPosition -= 10;
     page.drawText(`SUBTOTAL: $${subtotal.toFixed(2)}`, { 
       x: 380, 

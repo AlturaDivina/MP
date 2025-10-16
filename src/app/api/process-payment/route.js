@@ -59,6 +59,7 @@ async function processMercadoPagoPayment({
   idempotencyKey,
   displayMode, // <-- NUEVO
   ipAddress,
+  discount_amount = 0,
 }) {
   const mode = normalizeDisplayMode(displayMode);
   const isFF = mode === 'family';
@@ -134,10 +135,10 @@ async function processMercadoPagoPayment({
     total + (item.unit_price * item.quantity), 0);
 
   // 3. CRÍTICO: SIEMPRE sumar el fee al total calculado
-  let finalAmount = calculatedAmount + SHIPPING_FEE;
+  let finalAmount = Math.max(0, calculatedAmount - (Number(discount_amount) || 0) + SHIPPING_FEE);
   
   // 4. VERIFICAR que el frontend envió el monto correcto (con fee incluido)
-  const expectedTotal = calculatedAmount + SHIPPING_FEE;
+  const expectedTotal = Math.max(0, calculatedAmount - (Number(discount_amount) || 0) + SHIPPING_FEE);
   if (Math.abs(parseFloat(transaction_amount) - expectedTotal) > 0.01) {
     logError('❌ Discrepancia en montos:', {
       frontend_amount: transaction_amount,
@@ -373,6 +374,7 @@ export async function POST(req) {
       userData,
       totalAmount: totalAmountFromBody,
       displayMode: displayModeFromBody,
+      discountCode: discountCodeFromBody,
     } = validatedData;
 
     const displayMode = normalizeDisplayMode(displayModeFromBody);
@@ -396,6 +398,13 @@ export async function POST(req) {
 
     let itemsForPayment = [];
     let secureTotal = 0;
+
+    // Discount placeholders
+    let discount = {
+      code: null,
+      percent: 0,
+      amount: 0,
+    };
 
     if (isMultipleOrder) {
       // Construir array con datos seguros (solo IDs y cantidades del frontend)
@@ -426,7 +435,27 @@ export async function POST(req) {
 
     // ✅ CORRECCIÓN: Agregar el fee de envío al total calculado
   const SHIPPING_FEE = 0; // Envío ahora 0
-      const totalWithShipping = secureTotal + SHIPPING_FEE;
+      // Apply discount if provided
+      const normalizedCode = (discountCodeFromBody || '').toString().trim().toUpperCase();
+      if (normalizedCode) {
+        try {
+          const { data: d, error: de } = await supabase
+            .from('discount_codes')
+            .select('code, percent_off, active')
+            .eq('active', true)
+            .ilike('code', normalizedCode)
+            .maybeSingle();
+          if (!de && d && d.active && Number(d.percent_off) > 0) {
+            discount.code = d.code.toUpperCase();
+            discount.percent = Number(d.percent_off);
+            discount.amount = Math.round((secureTotal * (discount.percent / 100)) * 100) / 100;
+          }
+        } catch (e) {
+          logWarn('Fallo validando discount code en servidor, ignorando cupón', { error: e?.message });
+        }
+      }
+
+      const totalWithShipping = Math.max(0, secureTotal - (discount.amount || 0) + SHIPPING_FEE);
 
       // ✅ Comparar con el total enviado para detectar manipulación
       if (Math.abs(totalWithShipping - parseFloat(totalAmount)) > 0.01) {
@@ -475,6 +504,7 @@ export async function POST(req) {
       idempotencyKey,
       displayMode, // <-- importante
       ipAddress,
+      discount_amount: discount.amount || 0,
     });
 
     console.log(`🔍 CONSOLE DEBUG [${idempotencyKey}] Payment response:`, {
@@ -529,7 +559,28 @@ export async function POST(req) {
         (total, item) => total + parseFloat(item.price) * parseInt(item.quantity),
         0
       );
-      const totalWithShipping = subtotalProducts + SHIPPING_FEE;
+      // Recalcular discount en base a subtotalProducts (seguridad)
+      if (!discount.code && (discountCodeFromBody || '').toString().trim()) {
+        // Validar otra vez si no se validó antes (single order u otros flujos)
+        const normalizedCode = (discountCodeFromBody || '').toString().trim().toUpperCase();
+        try {
+          const { data: d, error: de } = await supabase
+            .from('discount_codes')
+            .select('code, percent_off, active')
+            .eq('active', true)
+            .ilike('code', normalizedCode)
+            .maybeSingle();
+          if (!de && d && d.active && Number(d.percent_off) > 0) {
+            discount.code = d.code.toUpperCase();
+            discount.percent = Number(d.percent_off);
+            discount.amount = Math.round((subtotalProducts * (discount.percent / 100)) * 100) / 100;
+          }
+        } catch (e) {
+          logWarn('Fallo validando discount code en servidor (post pago), ignorando cupón', { error: e?.message });
+        }
+      }
+
+      const totalWithShipping = Math.max(0, subtotalProducts - (discount.amount || 0) + SHIPPING_FEE);
 
     const customer_data =
       displayMode === 'family'
@@ -588,7 +639,11 @@ export async function POST(req) {
         payment_detail: paymentResponse.status_detail || null,
         customer_age: parseInt(userData.calculatedAge) || 0,
   shipping_fee: SHIPPING_FEE,
-        display_mode: displayMode
+        display_mode: displayMode,
+        // Discount fields
+        discount_code: discount.code || null,
+        discount_percent: discount.percent || 0,
+        discount_amount: discount.amount || 0
       };
 
       logInfo(`💾 [${idempotencyKey}] Preparando inserción en BD:`, {
@@ -668,6 +723,9 @@ export async function POST(req) {
           (total, item) => total + parseFloat(item.price) * parseInt(item.quantity),
           0
         );
+        const discountAmountEmail = discount.amount || 0;
+        const discountCodeEmail = discount.code || null;
+        const discountPercentEmail = discount.percent || 0;
 
   const orderDataForEmail = {
           userData,
@@ -679,7 +737,10 @@ export async function POST(req) {
           })),
           subtotal_amount: subtotalProductsEmail,
           shipping_fee: SHIPPING_FEE_EMAIL,
-          total_amount: subtotalProductsEmail + SHIPPING_FEE_EMAIL,
+          total_amount: Math.max(0, subtotalProductsEmail - discountAmountEmail + SHIPPING_FEE_EMAIL),
+          discount_amount: discountAmountEmail,
+          discount_code: discountCodeEmail,
+          discount_percent: discountPercentEmail,
           payment_id: paymentResponse.id,
           payment_status: paymentResponse.status,
           displayMode,
@@ -715,6 +776,8 @@ export async function POST(req) {
               subtotalAmount: subtotalProductsEmail,
               shippingFee: SHIPPING_FEE_EMAIL,
               totalAmount: orderDataForEmail.total_amount,
+              discountAmount: discountAmountEmail,
+              discountCode: discountCodeEmail,
               paymentStatus: paymentResponse.status,
               paymentId: paymentResponse.id,
               displayMode

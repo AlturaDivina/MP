@@ -102,7 +102,8 @@ export function validatePaymentRequestBody(body) {
     const quantity = b.quantity ?? null;
     const totalAmount = Number(b.totalAmount ?? 0);
     const userData = b.userData || {};
-    const displayMode = b.displayMode || formData.displayMode || 'full';
+  const displayMode = b.displayMode || formData.displayMode || 'full';
+  const discountCode = b.discountCode || formData.discountCode || null;
 
     return {
       data: {
@@ -114,7 +115,8 @@ export function validatePaymentRequestBody(body) {
         quantity,
         totalAmount,
         userData,
-        displayMode
+        displayMode,
+        discountCode
       }
     };
   } catch (e) {

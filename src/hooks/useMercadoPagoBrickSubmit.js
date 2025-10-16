@@ -33,6 +33,8 @@ export function useMercadoPagoBrickSubmit({
   quantity,
   totalAmount,
   userData,
+  discountCode,
+  discountAmount,
   onSuccess,
   onError,
   successUrl,
@@ -86,7 +88,8 @@ export function useMercadoPagoBrickSubmit({
 
   // Shipping fee globalmente 0 (anteriormente 200 si no era 'family')
   const SHIPPING_FEE = 0;
-      const totalWithShipping = finalAmount + SHIPPING_FEE;
+    const discountAmt = Number(discountAmount || 0);
+    const totalWithShipping = Math.max(0, finalAmount - discountAmt + SHIPPING_FEE);
 
       // Prefer robust payment type mapping
       const paymentType =
@@ -116,6 +119,7 @@ export function useMercadoPagoBrickSubmit({
         quantity: !orderSummary ? quantity : null,
         totalAmount: totalWithShipping,
         userData: legacySyncedUserData,
+        discountCode: discountCode || undefined,
         sessionToken: await getUserSessionToken(),
         idempotencyKey: uuidv4(),
         displayMode,

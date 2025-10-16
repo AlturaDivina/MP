@@ -155,7 +155,9 @@ export default function PaymentFlowWizard({
 
   // --- Derived totals ---
   const subtotal = totalAmount;
-  const total = subtotal + SHIPPING_FEE;
+  const [discountState, setDiscountState] = useState({ code: '', applied: null, loading: false, error: null });
+  const discountAmount = discountState.applied?.discount_amount || 0;
+  const total = Math.max(0, subtotal - discountAmount + SHIPPING_FEE);
   const totalFmt = useMemo(() => `$${formatPrice(total)}`,[total]);
 
   // --- Steps estáticos (Facturación siempre existe; si se marca "misma dirección" se ocultan campos) ---
@@ -291,8 +293,34 @@ export default function PaymentFlowWizard({
       case 'Envío': return <StepAddress title="Dirección de Envío" prefix="shipping" data={userData.shipping_address} setField={setField} errors={errors} />;
       case 'Facturación': return <StepBilling userData={userData} setUserData={setUserData} setField={setField} errors={errors} />;
       case 'Legales': return <StepLegals userData={userData} setUserData={setUserData} errors={errors} />;
-      case 'Revisión': return <StepReview items={items} userData={userData} subtotal={subtotal} total={total} />;
-      case 'Pago': return <StepPayment items={items} total={total} subtotal={subtotal} userData={userData} publicKey={mercadoPagoPublicKey} apiBaseUrl={apiBaseUrl} successUrl={successUrl} pendingUrl={pendingUrl} failureUrl={failureUrl} PaymentProviderComponent={PaymentProviderComponent} onSuccess={handlePaymentSuccess} onError={handlePaymentError} />;
+      case 'Revisión': return (
+        <StepReview 
+          items={items} 
+          userData={userData} 
+          subtotal={subtotal} 
+          total={total}
+          discount={discountState}
+          onDiscountChange={setDiscountState}
+          apiBaseUrl={apiBaseUrl}
+        />
+      );
+      case 'Pago': return (
+        <StepPayment 
+          items={items} 
+          total={total} 
+          subtotal={subtotal} 
+          userData={userData} 
+          publicKey={mercadoPagoPublicKey} 
+          apiBaseUrl={apiBaseUrl} 
+          successUrl={successUrl} 
+          pendingUrl={pendingUrl} 
+          failureUrl={failureUrl} 
+          PaymentProviderComponent={PaymentProviderComponent} 
+          onSuccess={handlePaymentSuccess} 
+          onError={handlePaymentError}
+          discount={discountState}
+        />
+      );
       default: return null;
     }
   };
@@ -537,7 +565,21 @@ function StepLegals({ userData, setUserData, errors }) {
   );
 }
 
-function StepReview({ items, userData, subtotal, total }) {
+async function validateDiscount(apiBaseUrl, code, subtotal) {
+  const url = `${apiBaseUrl.replace(/\/$/, '')}/api/discounts/validate`;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code, subtotal })
+  });
+  const data = await res.json();
+  if (!res.ok || !data.valid) {
+    throw new Error(data.error || 'Cupón inválido');
+  }
+  return data;
+}
+
+function StepReview({ items, userData, subtotal, total, discount, onDiscountChange, apiBaseUrl }) {
   return (
     <div className={styles.stepContainer}>
       <h3 className={styles.blockTitle}>Resumen Pedido</h3>
@@ -547,8 +589,52 @@ function StepReview({ items, userData, subtotal, total }) {
           <span>${formatPrice(p.price * p.quantity)}</span>
         </div>
       ))}
+      {/* Coupon input */}
+      <div className={styles.summaryBox} style={{ marginTop: 8, padding: 12 }}>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <input
+            type="text"
+            placeholder="Código de descuento"
+            value={discount.code}
+            onChange={e=> onDiscountChange({ ...discount, code: e.target.value.toUpperCase(), error: null })}
+            style={{ flex: 1, padding: '8px 10px', border: '1px solid #e5e7eb', borderRadius: 8 }}
+            aria-label="Código de descuento"
+          />
+          {discount.applied ? (
+            <button
+              className={styles.clearCartBtn}
+              onClick={() => onDiscountChange({ code: '', applied: null, loading: false, error: null })}
+              aria-label="Quitar descuento"
+            >Quitar</button>
+          ) : (
+            <button
+              className={styles.addBtn}
+              disabled={discount.loading || !discount.code}
+              onClick={async () => {
+                try {
+                  onDiscountChange({ ...discount, loading: true, error: null });
+                  const data = await validateDiscount(apiBaseUrl, discount.code, subtotal);
+                  onDiscountChange({ code: data.code, applied: data, loading: false, error: null });
+                } catch (e) {
+                  onDiscountChange({ ...discount, loading: false, error: e.message });
+                }
+              }}
+              aria-label="Aplicar código de descuento"
+            >{discount.loading ? 'Aplicando...' : 'Aplicar'}</button>
+          )}
+        </div>
+        {discount.error && <div className={styles.errorMsg} style={{ marginTop: 6 }}>{discount.error}</div>}
+        {discount.applied && (
+          <div style={{ marginTop: 8, fontSize: 12, color: '#059669' }}>
+            Aplicado: {discount.applied.code} (-{discount.applied.percent_off}% → -${formatPrice(discount.applied.discount_amount)})
+          </div>
+        )}
+      </div>
       <div className={styles.summaryBox}>
         <div className={styles.line}><span>Subtotal:</span><span>${formatPrice(subtotal)}</span></div>
+        {discount.applied && (
+          <div className={styles.line}><span>Descuento ({discount.applied.code}):</span><span>- ${formatPrice(discount.applied.discount_amount)}</span></div>
+        )}
   <div className={styles.line}><span>Envío:</span><span>${formatPrice(SHIPPING_FEE)}</span></div>
         <div className={`${styles.line} ${styles.totalLine}`}><span>Total:</span><span>${formatPrice(total)}</span></div>
       </div>
@@ -565,12 +651,15 @@ function StepReview({ items, userData, subtotal, total }) {
   );
 }
 
-function StepPayment({ items, total, subtotal, userData, publicKey, apiBaseUrl, successUrl, pendingUrl, failureUrl, PaymentProviderComponent, onSuccess, onError }) {
+function StepPayment({ items, total, subtotal, userData, publicKey, apiBaseUrl, successUrl, pendingUrl, failureUrl, PaymentProviderComponent, onSuccess, onError, discount }) {
   if (!items.length) return <p>Carrito vacío.</p>;
   return (
     <div className={styles.stepContainer}>
       <div className={styles.paymentSummary}>
         <div className={styles.line}><span>Subtotal:</span><span>${formatPrice(subtotal)}</span></div>
+        {discount?.applied && (
+          <div className={styles.line}><span>Descuento ({discount.applied.code}):</span><span>- ${formatPrice(discount.applied.discount_amount)}</span></div>
+        )}
   <div className={styles.line}><span>Envío:</span><span>${formatPrice(SHIPPING_FEE)}</span></div>
         <div className={`${styles.line} ${styles.totalLine}`}><span>Total:</span><span>${formatPrice(total)}</span></div>
       </div>
@@ -587,7 +676,7 @@ function StepPayment({ items, total, subtotal, userData, publicKey, apiBaseUrl, 
       <PaymentProviderComponent
         productId={items[0].productId}
         quantity={items[0].quantity}
-        totalAmount={subtotal} // envío fuera de preferencia si se maneja distinto
+        totalAmount={Math.max(0, subtotal - (discount?.applied?.discount_amount || 0))} // reflejar descuento en el formulario MP
         publicKey={publicKey}
         apiBaseUrl={apiBaseUrl}
         successUrl={successUrl}
@@ -595,6 +684,8 @@ function StepPayment({ items, total, subtotal, userData, publicKey, apiBaseUrl, 
         failureUrl={failureUrl}
         userData={userData}
         orderSummary={items.map(i => ({ productId: i.productId, name: i.name, quantity: i.quantity, price: i.price, total: i.price * i.quantity }))}
+        discountCode={discount?.applied?.code || ''}
+        discountAmount={discount?.applied?.discount_amount || 0}
         onSuccess={onSuccess}
         onError={onError}
         hideTitle={true}
