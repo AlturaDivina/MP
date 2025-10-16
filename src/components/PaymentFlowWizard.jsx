@@ -591,6 +591,9 @@ function StepReview({ items, userData, subtotal, total, discount, onDiscountChan
       ))}
       {/* Coupon input */}
       <div className={styles.summaryBox} style={{ marginTop: 8, padding: 12 }}>
+            <div className={styles.fieldLabel} style={{ marginBottom: 6, fontWeight: 700 }}>
+              CÓDIGO PROMOCIONAL
+            </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <input
             type="text"
