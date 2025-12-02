@@ -142,23 +142,42 @@ export async function generateReceiptPDF({
       yPosition -= 20;
     }
     
-    // Subtotal
-  const subtotal = subtotalAmount != null ? Number(subtotalAmount) : (Number(totalAmount) - fee + disc);
+    // ========== DESGLOSE COMPLETO DE PRECIOS ==========
     yPosition -= 10;
-    page.drawText(`SUBTOTAL: $${subtotal.toFixed(2)}`, { 
-      x: 380, 
-      y: yPosition, 
-      size: 12, 
-      font: boldFont 
-    });
+    page.drawLine({ start: { x: 50, y: yPosition }, end: { x: 545, y: yPosition }, thickness: 1, color: rgb(0.8, 0.8, 0.8) });
     yPosition -= 20;
     
-    // Total
-    page.drawText(`TOTAL: $${parseFloat(totalAmount).toFixed(2)}`, { 
-      x: 380, 
+    // Subtotal de productos (sin envío ni descuentos)
+    const subtotal = subtotalAmount != null ? Number(subtotalAmount) : items.reduce((sum, item) => sum + (parseFloat(item.price) * parseInt(item.quantity)), 0);
+    page.drawText('Subtotal de productos:', { x: 300, y: yPosition, size: 11, font });
+    page.drawText(`$${subtotal.toFixed(2)}`, { x: 480, y: yPosition, size: 11, font });
+    yPosition -= 18;
+    
+    // Descuento en productos
+    if (disc > 0) {
+      const label = `Descuento${discountCode ? ` (${discountCode})` : ''}:`;
+      page.drawText(label, { x: 300, y: yPosition, size: 11, font });
+      page.drawText(`-$${disc.toFixed(2)}`, { x: 480, y: yPosition, size: 11, font, color: rgb(0.8, 0, 0) });
+      yPosition -= 18;
+    }
+    
+    // Cargo de envío
+    page.drawText('Cargo de envío:', { x: 300, y: yPosition, size: 11, font });
+    page.drawText(`$${fee.toFixed(2)}`, { x: 480, y: yPosition, size: 11, font });
+    yPosition -= 18;
+    
+    // Línea separadora antes del total
+    page.drawLine({ start: { x: 300, y: yPosition }, end: { x: 545, y: yPosition }, thickness: 2, color: rgb(0, 0, 0) });
+    yPosition -= 25;
+    
+    // Total final
+    page.drawText('TOTAL A PAGAR:', { x: 300, y: yPosition, size: 14, font: boldFont });
+    page.drawText(`$${parseFloat(totalAmount).toFixed(2)}`, { 
+      x: 480, 
       y: yPosition, 
-      size: 14, 
-      font: boldFont 
+      size: 16, 
+      font: boldFont,
+      color: rgb(0, 0.5, 0)
     });
     
   // NUEVO: Agregar nota de verificación de edad con fecha

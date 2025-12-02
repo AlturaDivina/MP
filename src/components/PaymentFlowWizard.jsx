@@ -157,8 +157,24 @@ export default function PaymentFlowWizard({
   const subtotal = totalAmount;
   const [discountState, setDiscountState] = useState({ code: '', applied: null, loading: false, error: null });
   const discountAmount = discountState.applied?.discount_amount || 0;
-  const total = Math.max(0, subtotal - discountAmount + SHIPPING_FEE);
+  const shippingDiscountPercent = discountState.applied?.shipping_discount_percent || 0;
+  const shippingDiscount = Math.round((SHIPPING_FEE * (shippingDiscountPercent / 100)) * 100) / 100;
+  // ⚠️ CRÍTICO: Redondear a 2 decimales para evitar errores de precisión
+  const total = Math.round(Math.max(0, subtotal - discountAmount + (SHIPPING_FEE - shippingDiscount)) * 100) / 100;
   const totalFmt = useMemo(() => `$${formatPrice(total)}`,[total]);
+
+  // Log del cálculo cada vez que cambia
+  useEffect(() => {
+    logInfo('🧮 [PaymentFlowWizard] Cálculo de totales:', {
+      subtotal: subtotal,
+      discountAmount: discountAmount,
+      SHIPPING_FEE: SHIPPING_FEE,
+      shippingDiscountPercent: shippingDiscountPercent,
+      shippingDiscount: shippingDiscount,
+      total: total,
+      formula: `${subtotal} - ${discountAmount} + (${SHIPPING_FEE} - ${shippingDiscount}) = ${total}`
+    });
+  }, [subtotal, discountAmount, shippingDiscountPercent, shippingDiscount, total]);
 
   // --- Steps estáticos (Facturación siempre existe; si se marca "misma dirección" se ocultan campos) ---
   const steps = useMemo(() => ['Carrito', 'Datos', 'Envío', 'Facturación', 'Legales', 'Revisión', 'Pago'], []);
@@ -275,6 +291,16 @@ export default function PaymentFlowWizard({
 
   // --- Renders de pasos ---
   const renderStep = () => {
+    // Log cuando se renderiza el paso de pago
+    if (steps[stepIndex] === 'Pago') {
+      logInfo('🔄 [PaymentFlowWizard] Renderizando paso de pago con valores:', {
+        subtotal: subtotal,
+        total: total,
+        discountState: discountState,
+        items: items.map(i => ({ id: i.productId, qty: i.quantity, price: i.price }))
+      });
+    }
+    
     switch (steps[stepIndex]) {
       case 'Carrito': return (
         <StepCart
@@ -638,6 +664,9 @@ function StepReview({ items, userData, subtotal, total, discount, onDiscountChan
         {discount.applied && (
           <div className={styles.line}><span>Descuento ({discount.applied.code}):</span><span>- ${formatPrice(discount.applied.discount_amount)}</span></div>
         )}
+        {discount.applied?.shipping_discount_percent > 0 && (
+          <div className={styles.line}><span>Descuento en envío ({discount.applied.shipping_discount_percent}%):</span><span>- ${formatPrice(SHIPPING_FEE * (discount.applied.shipping_discount_percent / 100))}</span></div>
+        )}
   <div className={styles.line}><span>Envío:</span><span>${formatPrice(SHIPPING_FEE)}</span></div>
         <div className={`${styles.line} ${styles.totalLine}`}><span>Total:</span><span>${formatPrice(total)}</span></div>
       </div>
@@ -656,6 +685,24 @@ function StepReview({ items, userData, subtotal, total, discount, onDiscountChan
 
 function StepPayment({ items, total, subtotal, userData, publicKey, apiBaseUrl, successUrl, pendingUrl, failureUrl, PaymentProviderComponent, onSuccess, onError, discount }) {
   if (!items.length) return <p>Carrito vacío.</p>;
+  
+  // ⚠️ SOLUCIÓN: Pasar el subtotal sin descuentos al Provider
+  // El Provider calculará: subtotal - discountAmount + envío - descuento de envío
+  // Así evitamos aplicar el descuento dos veces
+  const totalAmountForProvider = subtotal; // Pasar subtotal sin descuentos
+  
+  // Log para verificar qué se pasa al Provider
+  logInfo('🎯 [StepPayment] Props que se pasan a MercadoPagoProvider:', {
+    subtotal: subtotal,
+    discountAmount: discount?.applied?.discount_amount || 0,
+    shippingDiscountPercent: discount?.applied?.shipping_discount_percent || 0,
+    totalAmountForProvider: totalAmountForProvider,
+    totalMostradoAlUsuario: total,
+    orderSummary: items.map(i => ({ productId: i.productId, name: i.name, quantity: i.quantity, price: i.price, total: i.price * i.quantity })),
+    discountCode: discount?.applied?.code || '',
+    nota: 'Pasamos el SUBTOTAL al Provider para que él aplique los descuentos'
+  });
+  
   return (
     <div className={styles.stepContainer}>
       <div className={styles.paymentSummary}>
@@ -679,7 +726,7 @@ function StepPayment({ items, total, subtotal, userData, publicKey, apiBaseUrl, 
       <PaymentProviderComponent
         productId={items[0].productId}
         quantity={items[0].quantity}
-        totalAmount={Math.max(0, subtotal - (discount?.applied?.discount_amount || 0))} // reflejar descuento en el formulario MP
+        totalAmount={totalAmountForProvider}
         publicKey={publicKey}
         apiBaseUrl={apiBaseUrl}
         successUrl={successUrl}
@@ -689,6 +736,7 @@ function StepPayment({ items, total, subtotal, userData, publicKey, apiBaseUrl, 
         orderSummary={items.map(i => ({ productId: i.productId, name: i.name, quantity: i.quantity, price: i.price, total: i.price * i.quantity }))}
         discountCode={discount?.applied?.code || ''}
         discountAmount={discount?.applied?.discount_amount || 0}
+        shippingDiscountPercent={discount?.applied?.shipping_discount_percent || 0}
         onSuccess={onSuccess}
         onError={onError}
         hideTitle={true}

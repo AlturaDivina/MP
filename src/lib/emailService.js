@@ -286,26 +286,49 @@ function getCustomerEmailTemplate({ orderId, isApproved, customerName, orderData
             ${itemsHtml}
           </tbody>
           <tfoot>
-            <!-- ✅ NUEVO: Mostrar subtotal -->
+            <!-- ========== DESGLOSE COMPLETO DE PRECIOS ========== -->
+            <!-- Subtotal de productos -->
             <tr style="background-color: #f8f9fa;">
-              <td colspan="2" style="padding: 10px 8px; text-align: right; color: #2c3e50;">Subtotal:</td>
-              <td style="padding: 10px 8px; text-align: right; color: #2c3e50;">$${orderData.subtotal_amount.toFixed(2)}</td>
+              <td colspan="2" style="padding: 10px 8px; text-align: right; color: #2c3e50; font-weight: 500;">Subtotal de productos:</td>
+              <td style="padding: 10px 8px; text-align: right; color: #2c3e50; font-weight: 500;">$${(orderData.subtotal_amount || items.reduce((sum, i) => sum + (i.price * i.quantity), 0)).toFixed(2)}</td>
             </tr>
+            
+            <!-- Descuento en productos -->
             ${Number(orderData.discount_amount||0) > 0 ? `
-            <tr style="background-color: #f8f9fa;">
+            <tr style="background-color: #fff3cd;">
               <td colspan="2" style="padding: 10px 8px; text-align: right; color: #2c3e50;">Descuento${orderData.discount_code ? ` (${orderData.discount_code})` : ''}:</td>
-              <td style="padding: 10px 8px; text-align: right; color: #dc2626;">- $${Number(orderData.discount_amount).toFixed(2)}</td>
+              <td style="padding: 10px 8px; text-align: right; color: #dc2626; font-weight: 600;">- $${Number(orderData.discount_amount).toFixed(2)}</td>
             </tr>
             ` : ''}
-            <!-- ✅ NUEVO: Mostrar envío -->
+            
+            <!-- Cargo de envío -->
             <tr style="background-color: #f8f9fa;">
-              <td colspan="2" style="padding: 10px 8px; text-align: right; color: #2c3e50;">Envío:</td>
-              <td style="padding: 10px 8px; text-align: right; color: #2c3e50;">$${orderData.shipping_fee.toFixed(2)}</td>
+              <td colspan="2" style="padding: 10px 8px; text-align: right; color: #2c3e50;">Cargo de envío:</td>
+              <td style="padding: 10px 8px; text-align: right; color: #2c3e50;">$${(orderData.shipping_fee||0).toFixed(2)}</td>
             </tr>
-            <!-- ✅ CORRECCIÓN: Total correcto -->
-            <tr style="background-color: #ecf0f1; font-weight: 600;">
-              <td colspan="2" style="padding: 15px 8px; text-align: right; color: #2c3e50;">Total:</td>
-              <td style="padding: 15px 8px; text-align: right; color: #27ae60; font-size: 18px;">$${orderData.total_amount.toFixed(2)}</td>
+            
+            <!-- Descuento en envío -->
+            ${Number(orderData.shipping_discount_percent||0) > 0 ? `
+            <tr style="background-color: #fff3cd;">
+              <td colspan="2" style="padding: 10px 8px; text-align: right; color: #2c3e50;">Descuento en envío (${Number(orderData.shipping_discount_percent)}%):</td>
+              <td style="padding: 10px 8px; text-align: right; color: #dc2626; font-weight: 600;">- $${((orderData.shipping_fee||0) * (Number(orderData.shipping_discount_percent)/100)).toFixed(2)}</td>
+            </tr>
+            ` : ''}
+            
+            <!-- Total de descuentos (si aplica) -->
+            ${ (Number(orderData.discount_amount||0) > 0 || Number(orderData.shipping_discount_percent||0) > 0) ? `
+            <tr style="background-color: #fef3c7; border-top: 2px solid #fbbf24;">
+              <td colspan="2" style="padding: 12px 8px; text-align: right; color: #2c3e50; font-weight: 600;">💰 Ahorro total:</td>
+              <td style="padding: 12px 8px; text-align: right; color: #dc2626; font-weight: 600; font-size: 16px;">- $${(
+                Number(orderData.discount_amount||0) + ((orderData.shipping_fee||0) * (Number(orderData.shipping_discount_percent||0)/100))
+              ).toFixed(2)}</td>
+            </tr>
+            ` : ''}
+            
+            <!-- Total final -->
+            <tr style="background-color: #d4edda; border-top: 3px solid #27ae60;">
+              <td colspan="2" style="padding: 15px 8px; text-align: right; color: #2c3e50; font-weight: 700; font-size: 16px;">TOTAL A PAGAR:</td>
+              <td style="padding: 15px 8px; text-align: right; color: #27ae60; font-weight: 700; font-size: 20px;">$${orderData.total_amount.toFixed(2)}</td>
             </tr>
           </tfoot>
         </table>
@@ -445,9 +468,37 @@ function getLogisticsEmailTemplate({ orderId, isApproved, orderData }) {
             ${productsHtml || '<tr><td colspan="4" style="padding: 15px; text-align: center; color: #6c757d;">No hay productos en la orden</td></tr>'}
           </tbody>
           <tfoot>
-            <tr style="background-color: #f8f9fa; font-weight: 600; font-size: 16px;">
-              <td colspan="3" style="padding: 15px 8px; text-align: right; color: #2c3e50;">TOTAL:</td>
-              <td style="padding: 15px 8px; text-align: right; color: #27ae60; font-size: 18px;">$${Number(totalAmount).toFixed(2)}</td>
+            <tr style="background-color: #f8f9fa;">
+              <td colspan="3" style="padding: 12px 8px; text-align: right; color: #2c3e50; font-weight: 500;">Subtotal de productos:</td>
+              <td style="padding: 12px 8px; text-align: right; color: #2c3e50; font-weight: 500;">$${subtotalProducts.toFixed(2)}</td>
+            </tr>
+            ${productDiscountAmount > 0 ? `
+            <tr style="background-color: #fff9e6;">
+              <td colspan="3" style="padding: 12px 8px; text-align: right; color: #856404; font-weight: 500;">
+                Descuento en productos${productDiscountCode ? ` (${productDiscountCode})` : ''}:
+              </td>
+              <td style="padding: 12px 8px; text-align: right; color: #d9534f; font-weight: 500;">-$${productDiscountAmount.toFixed(2)}</td>
+            </tr>
+            ` : ''}
+            <tr style="background-color: #f8f9fa;">
+              <td colspan="3" style="padding: 12px 8px; text-align: right; color: #2c3e50; font-weight: 500;">Cargo de envío:</td>
+              <td style="padding: 12px 8px; text-align: right; color: #2c3e50; font-weight: 500;">$${SHIPPING_FEE.toFixed(2)}</td>
+            </tr>
+            ${shippingDiscountAmount > 0 ? `
+            <tr style="background-color: #fff9e6;">
+              <td colspan="3" style="padding: 12px 8px; text-align: right; color: #856404; font-weight: 500;">Descuento en envío (${shippingDiscountPercent}%):</td>
+              <td style="padding: 12px 8px; text-align: right; color: #d9534f; font-weight: 500;">-$${shippingDiscountAmount.toFixed(2)}</td>
+            </tr>
+            ` : ''}
+            ${(productDiscountAmount + shippingDiscountAmount) > 0 ? `
+            <tr style="background-color: #fff3cd; border-top: 2px solid #ffc107;">
+              <td colspan="3" style="padding: 12px 8px; text-align: right; color: #856404; font-weight: 600; font-size: 15px;">💰 Ahorro total:</td>
+              <td style="padding: 12px 8px; text-align: right; color: #d9534f; font-weight: 600; font-size: 15px;">-$${(productDiscountAmount + shippingDiscountAmount).toFixed(2)}</td>
+            </tr>
+            ` : ''}
+            <tr style="background-color: #d4edda; border-top: 3px solid #28a745;">
+              <td colspan="3" style="padding: 15px 8px; text-align: right; color: #155724; font-weight: 700; font-size: 18px;">TOTAL A PAGAR:</td>
+              <td style="padding: 15px 8px; text-align: right; color: #28a745; font-weight: 700; font-size: 20px;">$${Number(totalAmount).toFixed(2)}</td>
             </tr>
           </tfoot>
         </table>

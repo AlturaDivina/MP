@@ -20,6 +20,7 @@ export default function MercadoPagoProvider(props) {
     orderSummary = null,
     discountCode = '',
     discountAmount = 0,
+    shippingDiscountPercent = 0,
     userData,
     publicKey,
     apiBaseUrl,
@@ -63,6 +64,36 @@ export default function MercadoPagoProvider(props) {
     payerOverride: payerMinimal,
   });
 
+  // Calcular total COMPLETO (subtotal - descuentos + envío - descuento envío)
+  const subtotalProducts = totalAmount !== null && totalAmount !== undefined
+    ? Number(totalAmount) 
+    : (orderSummary && Array.isArray(orderSummary) && orderSummary.length > 0
+        ? orderSummary.reduce((sum, item) => sum + (Number(item.price || 0) * Number(item.quantity || 0)), 0)
+        : 0);
+
+  logInfo('🧮 [MercadoPagoProvider] Cálculo de subtotal:', {
+    totalAmountProp: totalAmount,
+    orderSummary: orderSummary,
+    subtotalProducts: subtotalProducts
+  });
+
+  const SHIPPING_FEE = 200;
+  const discountAmt = Number(discountAmount || 0);
+  const shipDiscPct = Math.max(0, Math.min(100, Number(shippingDiscountPercent || 0)));
+  const shippingDiscount = Math.round((SHIPPING_FEE * (shipDiscPct / 100)) * 100) / 100;
+  // ⚠️ CRÍTICO: Redondear a 2 decimales para evitar errores de precisión
+  const finalTotal = Math.round(Math.max(1, subtotalProducts - discountAmt + (SHIPPING_FEE - shippingDiscount)) * 100) / 100;
+
+  logInfo('🧮 [MercadoPagoProvider] Cálculo del total final:', {
+    subtotalProducts: subtotalProducts,
+    discountAmt: discountAmt,
+    SHIPPING_FEE: SHIPPING_FEE,
+    shipDiscPct: shipDiscPct,
+    shippingDiscount: shippingDiscount,
+    finalTotal: finalTotal,
+    formula: `${subtotalProducts} - ${discountAmt} + (${SHIPPING_FEE} - ${shippingDiscount}) = ${finalTotal}`
+  });
+
   const { 
     handleSubmit: processPayment, 
     isProcessing, 
@@ -73,10 +104,11 @@ export default function MercadoPagoProvider(props) {
     orderSummary,
     productId,
     quantity,
-    totalAmount,
+    totalAmount: finalTotal,
     userData,
     discountCode,
     discountAmount,
+    shippingDiscountPercent,
     onSuccess: onSuccessCallback,
     onError: onErrorCallback,
     successUrl,
@@ -362,12 +394,6 @@ export default function MercadoPagoProvider(props) {
     );
   }
   
-  const finalTotalAmount = totalAmount !== null 
-    ? totalAmount 
-    : (orderSummary && orderSummary.length > 0
-        ? orderSummary.reduce((sum, item) => sum + (item.price * item.quantity), 0)
-        : 0);
-
   return (
     <div className={cn(styles.paymentFormContainer, className)} style={containerStyles}>
       {statusMsg && <p className={styles.statusMessage}>{statusMsg}</p>}
@@ -377,7 +403,7 @@ export default function MercadoPagoProvider(props) {
         <Payment
           key={`payment-${preferenceId}`}
           initialization={{
-            amount: finalTotalAmount,
+            amount: finalTotal,
             preferenceId: preferenceId,
             mercadoPago: mercadoPagoSdkInstance || window.MercadoPago
           }}

@@ -35,6 +35,7 @@ export function useMercadoPagoBrickSubmit({
   userData,
   discountCode,
   discountAmount,
+  shippingDiscountPercent = 0,
   onSuccess,
   onError,
   successUrl,
@@ -86,10 +87,14 @@ export function useMercadoPagoBrickSubmit({
           ? orderSummary.reduce((total, item) => total + (item.price * item.quantity), 0)
           : 0);
 
-  // Shipping fee globalmente 0 (anteriormente 200 si no era 'family')
-  const SHIPPING_FEE = 200;
-    const discountAmt = Number(discountAmount || 0);
-    const totalWithShipping = Math.max(0, finalAmount - discountAmt + SHIPPING_FEE);
+      logInfo('💰 [useMercadoPagoBrickSubmit] Total recibido del Provider:', {
+        totalAmount: totalAmount,
+        orderSummary: orderSummary,
+        finalAmount: finalAmount
+      });
+
+      // El provider ya calculó el total con descuentos incluidos, usarlo directamente
+      const totalWithShipping = finalAmount;
 
       // Prefer robust payment type mapping
       const paymentType =
@@ -120,12 +125,19 @@ export function useMercadoPagoBrickSubmit({
         totalAmount: totalWithShipping,
         userData: legacySyncedUserData,
         discountCode: discountCode || undefined,
+        shippingDiscountPercent: Number(shippingDiscountPercent || 0),
         sessionToken: await getUserSessionToken(),
         idempotencyKey: uuidv4(),
         displayMode,
       };
 
-      logInfo("Payload enviado a /api/process-payment:", backendPayload);
+      logInfo("📤 [useMercadoPagoBrickSubmit] Payload enviado a /api/process-payment:", backendPayload);
+      logInfo("📤 [useMercadoPagoBrickSubmit] TOTAL ENVIADO AL BACKEND:", {
+        totalAmount: totalWithShipping,
+        tipo: typeof totalWithShipping,
+        esNulo: totalWithShipping === null || totalWithShipping === undefined,
+        esCero: totalWithShipping === 0
+      });
 
       const processApiUrl = apiBaseUrl.includes('localhost')
         ? apiBaseUrl.replace(/\/$/, '').replace('https://', 'http://')

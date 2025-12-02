@@ -104,6 +104,8 @@ export function validatePaymentRequestBody(body) {
     const userData = b.userData || {};
   const displayMode = b.displayMode || formData.displayMode || 'full';
   const discountCode = b.discountCode || formData.discountCode || null;
+    // Optional: percentage discount to apply on shipping fee
+    const shippingDiscountPercent = Number(b.shippingDiscountPercent ?? formData.shippingDiscountPercent ?? 0) || 0;
 
     return {
       data: {
@@ -116,7 +118,8 @@ export function validatePaymentRequestBody(body) {
         totalAmount,
         userData,
         displayMode,
-        discountCode
+        discountCode,
+        shippingDiscountPercent
       }
     };
   } catch (e) {

@@ -60,6 +60,7 @@ async function processMercadoPagoPayment({
   displayMode, // <-- NUEVO
   ipAddress,
   discount_amount = 0,
+  shipping_discount_percent = 0,
 }) {
   const mode = normalizeDisplayMode(displayMode);
   const isFF = mode === 'family';
@@ -129,26 +130,48 @@ async function processMercadoPagoPayment({
     payerData.acceptsShippingFee = true;
   }
 
-  // 2. SIEMPRE calcula el total en el backend
-  const SHIPPING_FEE = 200; // Envío ahora siempre 0
-  const calculatedAmount = preferenceItems.reduce((total, item) => 
-    total + (item.unit_price * item.quantity), 0);
+  // 2. Calcular totales en backend (productos + envío - descuentos)
+  const SHIPPING_FEE = 200; // Base de envío
+  const calculatedAmount = preferenceItems.reduce((total, item) => total + (item.unit_price * item.quantity), 0);
+  const shipDiscPct = Math.max(0, Math.min(100, Number(shipping_discount_percent || 0)));
+  const shippingDiscount = Math.round((SHIPPING_FEE * (shipDiscPct / 100)) * 100) / 100;
+  const expectedTotal = Math.max(0, calculatedAmount - (Number(discount_amount) || 0) + (SHIPPING_FEE - shippingDiscount));
+  // ⚠️ CRÍTICO: Redondear a 2 decimales para evitar errores de precisión de punto flotante
+  let finalAmount = Math.round(expectedTotal * 100) / 100;
 
-  // 3. CRÍTICO: SIEMPRE sumar el fee al total calculado
-  let finalAmount = Math.max(0, calculatedAmount - (Number(discount_amount) || 0) + SHIPPING_FEE);
+  logInfo('🧮 [Backend] Cálculo de totales:', {
+    preferenceItems: preferenceItems.map(i => ({ id: i.id, price: i.unit_price, qty: i.quantity })),
+    calculatedAmount: calculatedAmount,
+    SHIPPING_FEE: SHIPPING_FEE,
+    discount_amount: discount_amount,
+    shipDiscPct: shipDiscPct,
+    shippingDiscount: shippingDiscount,
+    expectedTotal: expectedTotal,
+    finalAmount: finalAmount,
+    formula: `${calculatedAmount} - ${discount_amount} + (${SHIPPING_FEE} - ${shippingDiscount}) = ${expectedTotal}`
+  });
   
-  // 4. VERIFICAR que el frontend envió el monto correcto (con fee incluido)
-  const expectedTotal = Math.max(0, calculatedAmount - (Number(discount_amount) || 0) + SHIPPING_FEE);
+  // ⚠️ VALIDACIÓN CRÍTICA: Asegurar que finalAmount es un número válido y positivo
+  if (isNaN(finalAmount) || finalAmount <= 0) {
+    logError('❌ [Backend] finalAmount inválido:', {
+      finalAmount: finalAmount,
+      calculatedAmount: calculatedAmount,
+      discount_amount: discount_amount,
+      transaction_amount: transaction_amount
+    });
+    throw new Error('Invalid transaction_amount');
+  }
+
   if (Math.abs(parseFloat(transaction_amount) - expectedTotal) > 0.01) {
     logError('❌ Discrepancia en montos:', {
       frontend_amount: transaction_amount,
       expected_amount: expectedTotal,
       calculated_products: calculatedAmount,
-      shipping_fee: SHIPPING_FEE
+      shipping_fee: SHIPPING_FEE,
+      shipping_discount_percent: shipDiscPct,
+      shipping_discount_amount: shippingDiscount,
+      product_discount_amount: discount_amount
     });
-    
-    // Usar siempre el monto calculado en backend
-    finalAmount = expectedTotal;
   }
 
   // Format phone for BOTH preference and payment
@@ -220,6 +243,15 @@ async function processMercadoPagoPayment({
 
   // Crear el cliente de pagos
   const paymentClient = new Payment(client);
+  
+  logInfo('💳 [processMercadoPagoPayment] Preparando crear pago con MP:', {
+    finalAmount: finalAmount,
+    transaction_amount: transaction_amount,
+    tipo_finalAmount: typeof finalAmount,
+    esNaN_finalAmount: isNaN(finalAmount),
+    esPositivo_finalAmount: finalAmount > 0,
+    idempotencyKey: idempotencyKey
+  });
   
   // ✅ CRÍTICO: Asegurar que external_reference se establece correctamente EN LA RAÍZ
   const paymentResponse = await paymentClient.create({
@@ -357,7 +389,17 @@ export async function POST(req) {
 
     // --- Parse and validate body ---
     const body = await req.json();
-    logInfo('Request body en /api/process-payment:', { body, idempotencyKey });
+    logInfo('📥 [Backend] Request body en /api/process-payment:', { body, idempotencyKey });
+    
+    logInfo('📥 [Backend] TOTAL RECIBIDO DEL FRONTEND:', {
+      totalAmount: body.totalAmount,
+      tipo: typeof body.totalAmount,
+      esNulo: body.totalAmount === null || body.totalAmount === undefined,
+      esCero: body.totalAmount === 0,
+      orderSummary: body.orderSummary,
+      isMultipleOrder: body.isMultipleOrder,
+      idempotencyKey
+    });
 
     const { data: validatedData, error: validationError } = validatePaymentRequestBody(body);
     if (validationError) {
@@ -375,7 +417,14 @@ export async function POST(req) {
       totalAmount: totalAmountFromBody,
       displayMode: displayModeFromBody,
       discountCode: discountCodeFromBody,
+      shippingDiscountPercent: shippingDiscountPercentFromBody,
     } = validatedData;
+    
+    logInfo('📥 [Backend] Total después de validación:', {
+      totalAmountFromBody: totalAmountFromBody,
+      tipo: typeof totalAmountFromBody,
+      idempotencyKey
+    });
 
     const displayMode = normalizeDisplayMode(displayModeFromBody);
 
@@ -455,7 +504,9 @@ export async function POST(req) {
         }
       }
 
-      const totalWithShipping = Math.max(0, secureTotal - (discount.amount || 0) + SHIPPING_FEE);
+      const shipDiscPct = Math.max(0, Math.min(100, Number(shippingDiscountPercentFromBody || 0)));
+      const shippingDiscount = Math.round((SHIPPING_FEE * (shipDiscPct / 100)) * 100) / 100;
+      const totalWithShipping = Math.max(0, secureTotal - (discount.amount || 0) + (SHIPPING_FEE - shippingDiscount));
 
       // ✅ Comparar con el total enviado para detectar manipulación
       if (Math.abs(totalWithShipping - parseFloat(totalAmount)) > 0.01) {
@@ -491,6 +542,16 @@ export async function POST(req) {
     // --- Procesar pago en MP (valida internamente según displayMode) ---
     const ipAddress = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || '';
 
+    logInfo('💳 [Backend] Antes de llamar a processMercadoPagoPayment:', {
+      transaction_amount: totalAmount,
+      tipo: typeof totalAmount,
+      esNaN: isNaN(totalAmount),
+      esPositivo: totalAmount > 0,
+      discount_amount: discount.amount || 0,
+      shipping_discount_percent: shippingDiscountPercentFromBody || 0,
+      idempotencyKey
+    });
+
     const paymentResponse = await processMercadoPagoPayment({
       transaction_amount: totalAmount,
       token,
@@ -505,6 +566,7 @@ export async function POST(req) {
       displayMode, // <-- importante
       ipAddress,
       discount_amount: discount.amount || 0,
+      shipping_discount_percent: shippingDiscountPercentFromBody || 0,
     });
 
     console.log(`🔍 CONSOLE DEBUG [${idempotencyKey}] Payment response:`, {
@@ -580,7 +642,9 @@ export async function POST(req) {
         }
       }
 
-      const totalWithShipping = Math.max(0, subtotalProducts - (discount.amount || 0) + SHIPPING_FEE);
+      const shipDiscPct = Math.max(0, Math.min(100, Number(shippingDiscountPercentFromBody || 0)));
+      const shippingDiscount = Math.round((SHIPPING_FEE * (shipDiscPct / 100)) * 100) / 100;
+      const totalWithShipping = Math.max(0, subtotalProducts - (discount.amount || 0) + (SHIPPING_FEE - shippingDiscount));
 
     const customer_data =
       displayMode === 'family'
@@ -638,7 +702,8 @@ export async function POST(req) {
         payment_status: paymentResponse.status,
         payment_detail: paymentResponse.status_detail || null,
         customer_age: parseInt(userData.calculatedAge) || 0,
-  shipping_fee: SHIPPING_FEE,
+    shipping_fee: SHIPPING_FEE,
+      shipping_discount_percent: Math.max(0, Math.min(100, Number(shippingDiscountPercentFromBody || 0))) || 0,
         display_mode: displayMode,
         // Discount fields
         discount_code: discount.code || null,
@@ -718,7 +783,7 @@ export async function POST(req) {
           itemsForPayment: itemsForPayment?.length || 0
         });
 
-  const SHIPPING_FEE_EMAIL = 200; // Envío ahora 0
+  const SHIPPING_FEE_EMAIL = 200; // Base shipping fee
         const subtotalProductsEmail = itemsForPayment.reduce(
           (total, item) => total + parseFloat(item.price) * parseInt(item.quantity),
           0
@@ -726,6 +791,8 @@ export async function POST(req) {
         const discountAmountEmail = discount.amount || 0;
         const discountCodeEmail = discount.code || null;
         const discountPercentEmail = discount.percent || 0;
+        const shippingDiscountPercentEmail = Number(validatedData?.shippingDiscountPercent ?? 0) || 0;
+        const shippingDiscountEmail = Math.round((SHIPPING_FEE_EMAIL * (Math.max(0, Math.min(100, shippingDiscountPercentEmail)) / 100)) * 100) / 100;
 
   const orderDataForEmail = {
           userData,
@@ -737,10 +804,11 @@ export async function POST(req) {
           })),
           subtotal_amount: subtotalProductsEmail,
           shipping_fee: SHIPPING_FEE_EMAIL,
-          total_amount: Math.max(0, subtotalProductsEmail - discountAmountEmail + SHIPPING_FEE_EMAIL),
+          total_amount: Math.max(0, subtotalProductsEmail - discountAmountEmail + (SHIPPING_FEE_EMAIL - shippingDiscountEmail)),
           discount_amount: discountAmountEmail,
           discount_code: discountCodeEmail,
           discount_percent: discountPercentEmail,
+          shipping_discount_percent: shippingDiscountPercentEmail,
           payment_id: paymentResponse.id,
           payment_status: paymentResponse.status,
           displayMode,

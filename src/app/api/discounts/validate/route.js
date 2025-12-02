@@ -32,7 +32,9 @@ export async function POST(req) {
     // Look up active code (case-insensitive)
     const { data, error } = await supabaseAdmin
       .from('discount_codes')
-      .select('code, percent_off, active')
+      // Usar el nombre REAL de la columna en la tabla: ShippingPrcOff
+      // Si por alguna razón no existe, será undefined y tomaremos 0.
+      .select('code, percent_off, ShippingPrcOff, active')
       .eq('active', true)
       .ilike('code', normalized)
       .maybeSingle();
@@ -52,14 +54,17 @@ export async function POST(req) {
     }
 
     const discountAmount = Math.max(0, Math.round((subtotal * (percent / 100)) * 100) / 100);
+    const shippingDiscountPercent = Number(data.ShippingPrcOff || 0);
 
-    logInfo('Cupón validado', { code: normalized, percent, discountAmount });
+    logInfo('Cupón validado', { code: normalized, percent, discountAmount, shippingDiscountPercent });
 
     return NextResponse.json({
       valid: true,
       code: normalized,
       percent_off: percent,
       discount_amount: discountAmount,
+      // Normalizamos la clave hacia frontend como shipping_discount_percent
+      shipping_discount_percent: shippingDiscountPercent,
     });
   } catch (err) {
     logError('Error en /api/discounts/validate:', err);
