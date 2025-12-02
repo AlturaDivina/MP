@@ -1,4 +1,4 @@
-import { LRUCache } from 'lru-cache';
+import LRUCache from 'lru-cache';
 
 // Configuración simple de rate limiting en memoria
 // Para producción con mucho tráfico, considera usar Redis (Upstash, etc.)
